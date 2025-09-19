@@ -1,0 +1,7 @@
+{
+  "tolk": {
+    "stdlib": {
+      "path": "./stdlib.fc"
+    }
+  }
+}
