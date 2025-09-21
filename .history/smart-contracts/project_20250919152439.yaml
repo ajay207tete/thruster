@@ -1,0 +1,5 @@
+version: 0.1.0
+name: ShoppingContract
+source:
+  - contracts/ShoppingContract.fc
+stdlib: stdlib.fc

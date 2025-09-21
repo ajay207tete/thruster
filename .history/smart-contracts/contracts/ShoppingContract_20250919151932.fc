@@ -1,0 +1,62 @@
+import "stdlib.fc";
+
+global int lastOrderId;
+global map(int, tuple(slice, slice, int)) orders; ;; orderId -> (productDetails, productImage, paid)
+global slice ownerAddress;
+
+() constructor() {
+    ownerAddress = get_sender_address();
+    lastOrderId = 0;
+    orders = map();
+}
+
+() createOrder(slice productDetails, slice productImage) impure {
+    lastOrderId = lastOrderId + 1;
+    orders[lastOrderId] = (productDetails, productImage, 0);
+    ;; Optionally emit event or log order creation
+}
+
+() recv_internal(int msg_value, cell in_msg_cell, slice in_msg) impure {
+    ;; Handle TON payment
+    if (msg_value > 0) {
+        ;; Assume payment for last order
+        if (orders.exists(lastOrderId)) {
+            tuple(slice, slice, int) order = orders[lastOrderId];
+            int paid = order#2;
+            if (paid == 0) {
+                orders[lastOrderId] = (order#0, order#1, 1);
+                ;; Mark as paid
+            }
+        }
+    }
+}
+
+() recv_external(slice in_msg) impure {
+    ;; Handle external messages
+    int op = in_msg~load_uint(32);
+    if (op == 1) {
+        ;; createOrder
+        slice productDetails = in_msg~load_ref().begin_parse();
+        slice productImage = in_msg~load_ref().begin_parse();
+        createOrder(productDetails, productImage);
+    }
+}
+
+() withdraw() impure {
+    ;; Withdraw funds to owner
+    if (get_sender_address() != ownerAddress) {
+        throw(101); ;; Only owner can withdraw
+    }
+    int balance = get_balance();
+    if (balance > 0) {
+        send_raw_message(
+            begin_cell()
+                .store_uint(0x10, 6)
+                .store_slice(ownerAddress)
+                .store_coins(balance)
+                .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+                .end_cell(),
+            64
+        );
+    }
+}

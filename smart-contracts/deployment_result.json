@@ -1,0 +1,9 @@
+{
+  "address": "0:0QBjg8HT7GdRlO-4-7nC9ucEZ2XrcZS9xZ34TMU2DfodirJS",
+  "transaction_id": "mock_transaction_id_1758386945",
+  "block_id": "mock_block_id_1758386945",
+  "public_key": "0QBjg8HT7GdRlO-4-7nC9ucEZ2XrcZS9xZ34TMU2DfodirJS",
+  "secret_key": "mock_secret_key_for_demo_purposes_only",
+  "status": "deployed",
+  "network": "testnet"
+}
