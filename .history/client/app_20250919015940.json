@@ -22,8 +22,7 @@
       "display": "standalone",
       "startUrl": "/",
       "orientation": "portrait",
-      "backgroundColor": "#000000",
-      "public": "./public"
+      "backgroundColor": "#000000"
     },
     "plugins": [
       "expo-router"
