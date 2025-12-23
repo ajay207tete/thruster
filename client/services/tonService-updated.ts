@@ -1,7 +1,9 @@
 /**
- * TON Service for ShoppingContract Integration
- * Handles all TON blockchain interactions for the shopping application
+ * TON Service for THRUSTER Payment Integration
+ * Production-ready TON blockchain payment handling
  */
+
+import axios from 'axios';
 
 export interface TonContractConfig {
   address: string;
@@ -21,46 +23,171 @@ export interface PaymentStatus {
   transactionHash?: string;
 }
 
+export interface PaymentPayload {
+  validUntil: number;
+  messages: Array<{
+    address: string;
+    amount: string;
+    payload?: string;
+  }>;
+}
+
 export class TonService {
   private config: TonContractConfig;
-  private apiKey: string;
+  private tonConnectUI: any;
+  private apiBaseUrl: string;
 
-  constructor(config: TonContractConfig, apiKey?: string) {
+  constructor(config: TonContractConfig) {
     this.config = config;
-    this.apiKey = apiKey || 'your_ton_api_key_here';
+    this.apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'https://thruster-api.netlify.app';
+    this.tonConnectUI = null;
   }
 
   /**
-   * Create a new order on the blockchain
+   * Update service configuration
    */
-  async createOrder(orderData: OrderData): Promise<{success: boolean, orderId?: number, error?: string}> {
-    try {
-      const orderId = Math.floor(Math.random() * 1000000) + 1;
+  updateConfig(config: TonContractConfig): void {
+    this.config = config;
+  }
 
-      console.log('Creating order on TON blockchain:', {
+  /**
+   * Set TON Connect UI instance
+   */
+  setTonConnectUI(tonConnectUI: any): void {
+    this.tonConnectUI = tonConnectUI;
+  }
+
+  /**
+   * Initialize wallet connection
+   */
+  async initializeWalletConnection(): Promise<{success: boolean, walletAddress?: string, error?: string}> {
+    try {
+      if (!this.tonConnectUI) {
+        throw new Error('TON Connect UI not initialized');
+      }
+
+      // Check if already connected
+      if (this.isWalletConnected()) {
+        const walletAddress = this.getWalletAddress();
+        return {
+          success: true,
+          walletAddress: walletAddress || undefined
+        };
+      }
+
+      // Wallet is not connected, but initialization is considered successful
+      // Connection will happen when user interacts with connect button
+      return {
+        success: true
+      };
+    } catch (error: any) {
+      console.error('Error initializing wallet connection:', error);
+      return {
+        success: false,
+        error: error.message || 'Wallet initialization failed'
+      };
+    }
+  }
+
+  /**
+   * Check if wallet is connected
+   */
+  isWalletConnected(): boolean {
+    return this.tonConnectUI?.connected || false;
+  }
+
+  /**
+   * Get connected wallet address
+   */
+  getWalletAddress(): string | null {
+    return this.tonConnectUI?.wallet?.account?.address || null;
+  }
+
+  /**
+   * Create TON payment payload via backend API
+   */
+  async createPaymentPayload(orderId: string, amount: number, userWallet: string): Promise<PaymentPayload> {
+    try {
+      const response = await axios.post(`${this.apiBaseUrl}/api/payment/ton/create`, {
         orderId,
-        productDetails: orderData.productDetails,
-        productImage: orderData.productImage,
-        contractAddress: this.config.address
+        amount,
+        userWallet
       });
 
-      // In a real implementation, this would:
-      // 1. Encode the order data into TON cell format
-      // 2. Create a message to call the smart contract's createOrder function
-      // 3. Send the transaction to the TON network
-      // 4. Wait for confirmation and return the order ID
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to create payment payload');
+      }
 
-      // For now, we'll simulate the process
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      return response.data.transaction;
+    } catch (error: any) {
+      console.error('Error creating payment payload:', error);
+      throw new Error(error.response?.data?.message || error.message || 'Payment payload creation failed');
+    }
+  }
+
+  /**
+   * Send TON payment transaction
+   */
+  async sendPayment(orderId: string, amount: number): Promise<{success: boolean, transactionHash?: string, error?: string}> {
+    try {
+      if (!this.tonConnectUI) {
+        throw new Error('TON Connect UI not initialized');
+      }
+
+      if (!this.isWalletConnected()) {
+        throw new Error('Wallet not connected');
+      }
+
+      const userWallet = this.getWalletAddress();
+      if (!userWallet) {
+        throw new Error('Unable to get wallet address');
+      }
+
+      console.log('Creating TON payment payload for order:', orderId);
+
+      // Get payment payload from backend
+      const transaction = await this.createPaymentPayload(orderId, amount, userWallet);
+
+      console.log('Sending TON transaction:', transaction);
+
+      // Send transaction via TON Connect
+      const result = await this.tonConnectUI.sendTransaction(transaction);
+
+      console.log('TON payment sent successfully:', result);
 
       return {
         success: true,
-        orderId
+        transactionHash: result.boc
       };
-    } catch (error) {
+    } catch (error: any) {
+      console.error('TON payment error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error.message || 'Payment failed'
+      };
+    }
+  }
+
+  /**
+   * Verify TON payment via backend API
+   */
+  async verifyPayment(txHash: string, orderId: string, expectedAmount: number): Promise<{success: boolean, message?: string}> {
+    try {
+      const response = await axios.post(`${this.apiBaseUrl}/api/payment/ton/verify`, {
+        txHash,
+        orderId,
+        expectedAmount
+      });
+
+      return {
+        success: response.data.success,
+        message: response.data.message
+      };
+    } catch (error: any) {
+      console.error('Error verifying payment:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || 'Payment verification failed'
       };
     }
   }
@@ -68,47 +195,32 @@ export class TonService {
   /**
    * Check payment status for an order
    */
-  async checkPaymentStatus(orderId: number): Promise<PaymentStatus> {
+  async checkPaymentStatus(orderId: string): Promise<PaymentStatus> {
     try {
-      console.log('Checking payment status for order:', orderId);
-
-      // In a real implementation, this would:
-      // 1. Query the smart contract to check if the order is paid
-      // 2. Get transaction details from TON blockchain
-      // 3. Verify payment amount and status
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Simulate realistic payment checking
-      const isPaid = Math.random() > 0.7; // 30% chance of being unpaid for demo
+      const response = await axios.get(`${this.apiBaseUrl}/api/payment/ton/status/${orderId}`);
 
       return {
-        orderId,
-        isPaid,
-        transactionHash: isPaid ? `ton_tx_${orderId}_${Date.now()}` : undefined
+        orderId: parseInt(orderId),
+        isPaid: response.data.paymentStatus === 'PAID',
+        transactionHash: response.data.txHash
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking payment status:', error);
       return {
-        orderId,
+        orderId: parseInt(orderId),
         isPaid: false
       };
     }
   }
 
   /**
-   * Get contract balance
+   * Get contract balance (for admin purposes)
    */
   async getContractBalance(): Promise<string> {
     try {
-      // In a real implementation, this would:
-      // 1. Query the smart contract's balance
-      // 2. Convert from nanotons to TON
-      // 3. Return formatted balance
-
-      const balance = (Math.random() * 1000).toFixed(2);
-      console.log('Contract balance:', balance, 'TON');
-      return balance;
+      // This would typically be an admin-only endpoint
+      const response = await axios.get(`${this.apiBaseUrl}/api/admin/contract-balance`);
+      return response.data.balance || '0';
     } catch (error) {
       console.error('Error getting contract balance:', error);
       return '0';
@@ -116,139 +228,57 @@ export class TonService {
   }
 
   /**
-   * Withdraw funds (owner only)
+   * Disconnect wallet
    */
-  async withdrawFunds(): Promise<{success: boolean, transactionHash?: string, error?: string}> {
+  async disconnectWallet(): Promise<void> {
     try {
-      console.log('Initiating fund withdrawal from contract...');
-
-      // In a real implementation, this would:
-      // 1. Create a withdrawal transaction
-      // 2. Send it to the smart contract
-      // 3. Wait for confirmation
-      // 4. Return transaction hash
-
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      return {
-        success: true,
-        transactionHash: `withdraw_tx_${Date.now()}`
-      };
+      if (this.tonConnectUI) {
+        await this.tonConnectUI.disconnect();
+      }
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+      console.error('Error disconnecting wallet:', error);
     }
   }
 
   /**
-   * Get all orders
+   * Validate TON address format
    */
-  async getAllOrders(): Promise<OrderData[]> {
+  isValidAddress(address: string): boolean {
     try {
-      console.log('Getting all orders from contract...');
-
-      // In a real implementation, this would:
-      // 1. Query the smart contract for all orders
-      // 2. Decode the order data from cells
-      // 3. Return formatted order list
-
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      return [];
-    } catch (error) {
-      console.error('Error getting orders:', error);
-      return [];
+      // Basic TON address validation (should start with 'UQ' or 'EQ' for user addresses)
+      return /^U[QC][A-Za-z0-9_-]{46}$/.test(address) || /^E[QC][A-Za-z0-9_-]{46}$/.test(address);
+    } catch {
+      return false;
     }
   }
 
   /**
-   * Initialize TON Connect wallet connection
+   * Format TON amount for display
    */
-  async initializeWalletConnection(): Promise<{success: boolean, walletAddress?: string, error?: string}> {
-    try {
-      console.log('Initializing TON wallet connection...');
-
-      // In a real implementation, this would:
-      // 1. Initialize TON Connect UI
-      // 2. Handle wallet connection
-      // 3. Get wallet address and balance
-      // 4. Set up event listeners for wallet changes
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      return {
-        success: true,
-        walletAddress: 'UQBU...demo' // Demo wallet address
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Wallet connection failed'
-      };
-    }
+  formatAmount(amount: number): string {
+    return amount.toFixed(2) + ' TON';
   }
 
   /**
-   * Send TON payment to contract
+   * Convert TON to nanotons
    */
-  async sendPayment(amount: string, orderId: number): Promise<{success: boolean, transactionHash?: string, error?: string}> {
-    try {
-      console.log('Sending TON payment:', { amount, orderId });
-
-      // In a real implementation, this would:
-      // 1. Create payment transaction with proper amount
-      // 2. Send to smart contract address
-      // 3. Wait for confirmation
-      // 4. Return transaction details
-
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      return {
-        success: true,
-        transactionHash: `payment_tx_${orderId}_${Date.now()}`
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Payment failed'
-      };
-    }
+  toNano(amount: number): string {
+    return (amount * 1000000000).toString();
   }
 
-  // Helper methods for encoding/decoding data
-  private encodeProductDetails(details: string): string {
-    // Encode product details to cell format
-    return Buffer.from(details).toString('base64');
-  }
-
-  private encodeProductImage(imageUrl: string): string {
-    // Encode image URL to cell format
-    return Buffer.from(imageUrl).toString('base64');
-  }
-
-  private decodeProductDetails(encoded: string): string {
-    // Decode product details from cell format
-    return Buffer.from(encoded, 'base64').toString();
-  }
-
-  private decodeProductImage(encoded: string): string {
-    // Decode image URL from cell format
-    return Buffer.from(encoded, 'base64').toString();
-  }
-
-  private createWithdrawalMessage(): string {
-    // Create withdrawal message BOC
-    return 'mock_withdrawal_boc';
+  /**
+   * Convert nanotons to TON
+   */
+  fromNano(amount: string): string {
+    return (parseInt(amount) / 1000000000).toFixed(2);
   }
 }
 
-// Default configuration for testnet
+// Default configuration for mainnet (production)
 export const defaultTonConfig: TonContractConfig = {
-  address: '0:0QBjg8HT7GdRlO-4-7nC9ucEZ2XrcZS9xZ34TMU2DfodirJS',
-  network: 'testnet',
-  endpoint: 'https://testnet.toncenter.com/api/v2'
+  address: process.env.EXPO_PUBLIC_TON_CONTRACT_ADDRESS || 'EQC8rUZqR_pWV1BylWUlPNBzyiTYVoBEmQkMIQDZXICfnuRr', // Replace with actual deployed contract
+  network: 'mainnet',
+  endpoint: 'https://toncenter.com/api/v2'
 };
 
 // Create default TON service instance

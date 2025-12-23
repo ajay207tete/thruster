@@ -1,29 +1,108 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, TextInput, TouchableOpacity, ScrollView, Alert, Image, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, SearchParams } from 'expo-router';
-
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { ThemedText } from '@/components/ThemedText';
+import { CheckoutFlow } from '../../components/CheckoutFlow';
+import { useCart } from '../../contexts/CartContext';
 
-export default function CheckoutScreen({ params }: { params?: { name?: string; price?: string; size?: string; color?: string } }) {
+export default function CheckoutScreen() {
   const router = useRouter();
+  const { state: cartState } = useCart();
+  const cart = cartState.cart;
+  const { cartItems: cartItemsParam } = useLocalSearchParams();
 
-  const { name = 'Product', price = '0', size = 'M', color = 'Neon Green' } = params || {};
-
+  const [showCheckoutFlow, setShowCheckoutFlow] = useState(false);
+  const [urlCartItems, setUrlCartItems] = useState<any[]>([]);
   const [shippingName, setShippingName] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
   const [shippingCity, setShippingCity] = useState('');
   const [shippingPostalCode, setShippingPostalCode] = useState('');
   const [shippingCountry, setShippingCountry] = useState('');
 
+  useEffect(() => {
+    if (cartItemsParam && typeof cartItemsParam === 'string') {
+      try {
+        const decoded = decodeURIComponent(cartItemsParam);
+        const parsed = JSON.parse(decoded);
+        setUrlCartItems(Array.isArray(parsed) ? parsed : []);
+      } catch (error) {
+        console.error('Error parsing cartItems from URL:', error);
+        setUrlCartItems([]);
+      }
+    } else if (cart?.items && cart.items.length > 0) {
+      // If no URL params, use cart from context
+      setUrlCartItems(cart.items);
+    }
+  }, [cartItemsParam, cart]);
+
+  const handleOrderComplete = (order: any) => {
+    console.log('Order completed:', order);
+    router.push('/my-order');
+  };
+
+  const handleCancelCheckout = () => {
+    setShowCheckoutFlow(false);
+    router.back();
+  };
+
+  // Transform cart items to OrderItem format
+  const transformCartItemsToOrderItems = (cartItems: any[]) => {
+    return cartItems.map(item => ({
+      productId: item._id || item.product?._id,
+      name: item.name || item.product?.name,
+      price: item.price,
+      quantity: item.quantity,
+      image: item.image || item.product?.image
+    }));
+  };
+
+  const handleProceedToPayment = () => {
+    setShowCheckoutFlow(true);
+  };
+
+  if (showCheckoutFlow) {
+    const cartItemsToUse = urlCartItems.length > 0 ? urlCartItems : (cart?.items || []);
+    return (
+      <View style={styles.container}>
+        <CheckoutFlow
+          cartItems={transformCartItemsToOrderItems(cartItemsToUse)}
+          onOrderComplete={handleOrderComplete}
+          onCancel={handleCancelCheckout}
+        />
+      </View>
+    );
+  }
+
+  const cartItemsToUse = urlCartItems.length > 0 ? urlCartItems : (cart?.items || []);
+  const totalAmount = cartItemsToUse.reduce((total, item) => total + (item.price * (item.quantity || 1)), 0);
+
+  const renderCartItem = ({ item }: { item: any }) => (
+    <View style={styles.cartItem}>
+      {item.image ? (
+        <Image source={{ uri: item.image }} style={styles.productImage} />
+      ) : (
+        <View style={styles.placeholderImage}>
+          <ThemedText style={styles.placeholderText}>📦</ThemedText>
+        </View>
+      )}
+      <View style={styles.itemDetails}>
+        <ThemedText style={styles.productName}>{item.name || 'Product'}</ThemedText>
+        <ThemedText style={styles.productInfo}>Size: {item.size || 'N/A'}</ThemedText>
+        <ThemedText style={styles.productInfo}>Color: {item.color || 'N/A'}</ThemedText>
+        <ThemedText style={styles.productInfo}>Qty: {item.quantity || 1}</ThemedText>
+        <ThemedText style={styles.productPrice}>${item.price?.toFixed(2) || '0.00'}</ThemedText>
+      </View>
+    </View>
+  );
+
   const handlePlaceOrder = () => {
     if (!shippingName || !shippingAddress || !shippingCity || !shippingPostalCode || !shippingCountry) {
       Alert.alert('Error', 'Please fill in all shipping details.');
       return;
     }
-    Alert.alert('Order Placed', `Thank you for your order of ${name} (${size}, ${color})!`);
-    router.push('/shop');
+    handleProceedToPayment();
   };
 
   return (
@@ -40,10 +119,19 @@ export default function CheckoutScreen({ params }: { params?: { name?: string; p
       {/* Order Summary */}
       <View style={styles.section}>
         <ThemedText style={styles.sectionTitle}>Order Summary</ThemedText>
-        <ThemedText style={styles.orderText}>Product: {name}</ThemedText>
-        <ThemedText style={styles.orderText}>Size: {size}</ThemedText>
-        <ThemedText style={styles.orderText}>Color: {color}</ThemedText>
-        <ThemedText style={styles.orderText}>Subtotal: ${price}</ThemedText>
+        {cartItemsToUse.length > 0 ? (
+          <FlatList
+            data={cartItemsToUse}
+            keyExtractor={(item, index) => item._id || index.toString()}
+            renderItem={renderCartItem}
+            scrollEnabled={false}
+          />
+        ) : (
+          <ThemedText style={styles.emptyCart}>No items in cart</ThemedText>
+        )}
+        <View style={styles.totalContainer}>
+          <ThemedText style={styles.totalText}>Total: ${totalAmount.toFixed(2)}</ThemedText>
+        </View>
       </View>
 
       {/* Shipping Details */}
@@ -88,7 +176,7 @@ export default function CheckoutScreen({ params }: { params?: { name?: string; p
 
       {/* Place Order Button */}
       <TouchableOpacity style={styles.placeOrderButton} onPress={handlePlaceOrder}>
-        <ThemedText style={styles.placeOrderButtonText}>Place Order</ThemedText>
+        <ThemedText style={styles.placeOrderButtonText}>Proceed to Payment</ThemedText>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -156,6 +244,75 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontWeight: 'bold',
     fontSize: 18,
+    fontFamily: 'SpaceMono',
+  },
+  cartItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    padding: 10,
+    backgroundColor: '#111',
+    borderRadius: 8,
+  },
+  productImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 4,
+    marginRight: 15,
+  },
+  placeholderImage: {
+    width: 60,
+    height: 60,
+    backgroundColor: '#333',
+    borderRadius: 4,
+    marginRight: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 24,
+    color: '#00ff00',
+  },
+  itemDetails: {
+    flex: 1,
+  },
+  productName: {
+    color: '#00ff00',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'SpaceMono',
+    marginBottom: 5,
+  },
+  productInfo: {
+    color: '#00ff00',
+    fontSize: 14,
+    fontFamily: 'SpaceMono',
+    marginBottom: 2,
+  },
+  productPrice: {
+    color: '#00ff00',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'SpaceMono',
+  },
+  emptyCart: {
+    color: '#666',
+    fontSize: 16,
+    fontFamily: 'SpaceMono',
+    textAlign: 'center',
+    marginVertical: 20,
+  },
+  totalContainer: {
+    marginTop: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#00ff00',
+    alignItems: 'center',
+  },
+  totalText: {
+    color: '#00ff00',
+    fontSize: 18,
+    fontWeight: 'bold',
     fontFamily: 'SpaceMono',
   },
 });

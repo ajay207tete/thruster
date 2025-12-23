@@ -2,7 +2,7 @@ import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import CheckoutScreen from '../app/checkout';
+import CheckoutScreen from '../app/(tabs)/checkout';
 import { PaymentService } from '../services/paymentService';
 import { TonService } from '../services/tonService-updated';
 

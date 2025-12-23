@@ -1,112 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, View, FlatList, TouchableOpacity, Alert, Image, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
+import { useCart } from '../contexts/CartContext';
 import { Product } from './(tabs)/shop';
 
 export default function CartScreen() {
-  const { cartItems: cartItemsParam } = useLocalSearchParams();
-  const [cartItems, setCartItems] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { state, removeFromCart } = useCart();
 
-  useEffect(() => {
-    const loadCartItems = async () => {
-      try {
-        setLoading(true);
-        console.log('Loading cart items...');
-
-        // First try to get from URL parameters
-        if (cartItemsParam && typeof cartItemsParam === 'string') {
-          console.log('Loading from URL params');
-          try {
-            const decodedParam = decodeURIComponent(cartItemsParam);
-            console.log('Decoded param length:', decodedParam.length);
-
-            const parsedItems = JSON.parse(decodedParam);
-            console.log('Parsed items:', parsedItems.length);
-
-            const updatedItems = parsedItems.map((item: any) => ({
-              ...item,
-              quantity: item.quantity || 1,
-              price: typeof item.price === 'string' ? parseFloat(item.price) : item.price,
-            }));
-
-            setCartItems(updatedItems);
-            console.log('Cart items loaded from URL:', updatedItems.length);
-          } catch (parseError) {
-            console.error('Error parsing URL cart items:', parseError);
-            // If URL parsing fails, try AsyncStorage
-            const storedCart = await AsyncStorage.getItem('cartItems');
-            if (storedCart) {
-              const parsedItems = JSON.parse(storedCart);
-              const updatedItems = parsedItems.map((item: any) => ({
-                ...item,
-                quantity: item.quantity || 1,
-                price: typeof item.price === 'string' ? parseFloat(item.price) : item.price,
-              }));
-              setCartItems(updatedItems);
-              console.log('Cart items loaded from storage:', updatedItems.length);
-            } else {
-              console.log('No cart items found');
-              setCartItems([]);
-            }
-          }
-        } else {
-          // Fallback to AsyncStorage
-          console.log('Loading from AsyncStorage');
-          const storedCart = await AsyncStorage.getItem('cartItems');
-          if (storedCart) {
-            const parsedItems = JSON.parse(storedCart);
-            const updatedItems = parsedItems.map((item: any) => ({
-              ...item,
-              quantity: item.quantity || 1,
-              price: typeof item.price === 'string' ? parseFloat(item.price) : item.price,
-            }));
-            setCartItems(updatedItems);
-            console.log('Cart items loaded from storage:', updatedItems.length);
-          } else {
-            console.log('No cart items found');
-            setCartItems([]);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading cart items:', error);
-        Alert.alert('Error', 'Failed to load cart items. Please try again.');
-        setCartItems([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadCartItems();
-  }, [cartItemsParam]);
-
-  const handleRemoveItem = (id: string) => {
-    Alert.alert(
-      'Remove Item',
-      'Are you sure you want to remove this item from your cart?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const updatedItems = cartItems.filter(item => item._id !== id);
-              setCartItems(updatedItems);
-              await AsyncStorage.setItem('cartItems', JSON.stringify(updatedItems));
-            } catch (error) {
-              console.error('Error removing item from cart:', error);
-              Alert.alert('Error', 'Failed to remove item from cart. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+  const handleRemoveItem = async (id: string) => {
+    try {
+      await removeFromCart(id);
+    } catch (error) {
+      console.error('Error removing item:', error);
+      Alert.alert('Error', 'Failed to remove item from cart');
+    }
   };
 
   const handleBackToShop = () => {
@@ -114,26 +25,23 @@ export default function CartScreen() {
   };
 
   const handleProceedToCheckout = () => {
-    // Navigate to checkout with cart items
-    router.push({
-      pathname: '/checkout',
-      params: { cartItems: JSON.stringify(cartItems) },
-    });
+    // Navigate to checkout
+    router.push('/checkout');
   };
 
   const getTotalPrice = () => {
-    return cartItems.reduce((total, item) => total + (item.price * (item.quantity || 1)), 0).toFixed(2);
+    return state.cart?.items.reduce((total: number, item: any) => total + (item.price * (item.quantity || 1)), 0).toFixed(2) || '0.00';
   };
 
-  const renderCartItem = ({ item }: { item: Product }) => (
+  const renderCartItem = ({ item }: { item: any }) => (
     <View style={styles.cartItem}>
-      {item.image ? (
-        <Image source={{ uri: item.image }} style={styles.itemImage} />
+      {item.product?.image ? (
+        <Image source={{ uri: item.product.image }} style={styles.itemImage} />
       ) : (
         <Ionicons name="shirt" size={40} color="#00ff00" style={styles.itemIcon} />
       )}
       <View style={styles.itemDetails}>
-        <ThemedText style={styles.itemText}>{item.name}</ThemedText>
+        <ThemedText style={styles.itemText}>{item.product?.name || 'Product'}</ThemedText>
         <ThemedText style={styles.itemDetailsText}>Size: {item.size || 'N/A'}</ThemedText>
         <ThemedText style={styles.itemDetailsText}>Color: {item.color || 'N/A'}</ThemedText>
         <ThemedText style={styles.itemDetailsText}>Quantity: {item.quantity || 1}</ThemedText>
@@ -144,16 +52,6 @@ export default function CartScreen() {
       </TouchableOpacity>
     </View>
   );
-
-  if (loading) {
-    return (
-      <ThemedView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ThemedText style={styles.loadingText}>Loading cart items...</ThemedText>
-        </View>
-      </ThemedView>
-    );
-  }
 
   return (
     <ThemedView style={styles.container}>
@@ -166,7 +64,7 @@ export default function CartScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      {cartItems.length === 0 ? (
+      {state.cart?.items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="cart" size={80} color="#333333" />
           <ThemedText style={styles.emptyText}>Your cart is empty.</ThemedText>
@@ -180,7 +78,7 @@ export default function CartScreen() {
           <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>Cart Items</ThemedText>
             <FlatList
-              data={cartItems}
+              data={state.cart?.items}
               keyExtractor={(item) => item._id}
               renderItem={renderCartItem}
               contentContainerStyle={styles.list}

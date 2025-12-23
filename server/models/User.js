@@ -1,55 +1,34 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  phone: { type: String },
-  address: {
-    street: String,
-    city: String,
-    state: String,
-    zipCode: String,
-    country: String,
+  walletAddress: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    validate: {
+      validator: function(v) {
+        return /^UQ[A-Za-z0-9_-]{46}$/.test(v) || /^EQ[A-Za-z0-9_-]{46}$/.test(v);
+      },
+      message: 'Invalid TON wallet address format'
+    }
   },
-  bookings: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Booking'
-  }],
-  orders: [{
-    items: [{
-      product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-      quantity: { type: Number, required: true },
-      price: { type: Number, required: true },
-    }],
-    totalAmount: { type: Number, required: true },
-    paymentId: { type: String, required: true },
-    paymentCurrency: { type: String, required: true },
-    shippingDetails: {
-      name: { type: String, required: true },
-      email: { type: String, required: true },
-      address: { type: String, required: true },
-      city: { type: String, required: true },
-      postalCode: { type: String, required: true },
-      country: { type: String, required: true },
-      phone: String,
-    },
-    status: { type: String, default: 'pending' },
-    paymentStatus: { type: String, default: 'pending' },
-    orderDate: { type: Date, default: Date.now },
-  }],
-  shippingDetails: {
-    preferredCarrier: String,
-    trackingNumber: String,
-    shippingAddress: {
-      street: String,
-      city: String,
-      state: String,
-      zipCode: String,
-      country: String,
-    },
+  createdAt: {
+    type: Date,
+    default: Date.now
   },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
+  lastLogin: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+userSchema.index({ walletAddress: 1 });
+userSchema.index({ createdAt: -1 });
+
+userSchema.pre('save', function(next) {
+  this.lastLogin = new Date();
+  next();
 });
 
 module.exports = mongoose.model('User', userSchema);

@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
 import { useTonContract, useTonOrder } from '../hooks/useTonContract';
-import { OrderData } from '../services/tonService';
+import { OrderData } from '../services/tonService-updated';
 
 interface TonOrderComponentProps {
   style?: any;

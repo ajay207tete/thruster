@@ -1,4 +1,0 @@
-- [x] Add getShopProductById function to sanityClient.ts
-- [x] Update product-detail.tsx to use Sanity instead of server API
-- [ ] Test the product detail page to ensure it loads from Sanity
-- [ ] Verify images display correctly

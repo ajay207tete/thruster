@@ -23,7 +23,11 @@
       "startUrl": "/",
       "orientation": "portrait",
       "backgroundColor": "#000000",
-      "public": "./public"
+      "public": "./public",
+      "telegramWebApp": {
+        "url": "https://your-domain.com",
+        "scope": "all"
+      }
     },
     "extra": {
       "tonManifestUrl": "https://chocolate-chemical-orangutan-457.mypinata.cloud/ipfs/bafkreib4t6hllayvqgy3lxo4ck7kunypktnqluhxpa7ozlxh46la6llbyq"

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import CheckoutScreen from '../app/checkout';
+import CheckoutScreen from '../app/checkout-new';
 import { PaymentService } from '../services/paymentService';
 import { TonService } from '../services/tonService-updated';
 
@@ -114,7 +114,7 @@ describe('Checkout Page Tests', () => {
   });
 
   it('should display product details correctly', async () => {
-    const { getByText } = await act(async () => render(<Checkout />));
+    const { getByText } = await act(async () => render(<CheckoutScreen />));
 
     await waitFor(() => {
       expect(getByText('Cyberpunk T-Shirt')).toBeTruthy();
@@ -138,7 +138,7 @@ describe('Checkout Page Tests', () => {
   });
 
   it('should handle successful payment flow', async () => {
-    const { getByText } = await act(async () => render(<Checkout />));
+    const { getByText } = await act(async () => render(<CheckoutScreen />));
 
     await waitFor(() => {
       expect(getByText('💎 Pay with TON Smart Contract')).toBeTruthy();
@@ -159,7 +159,7 @@ describe('Checkout Page Tests', () => {
   });
 
   it('should handle payment failure gracefully', async () => {
-    const { getByText } = await act(async () => render(<Checkout />));
+    const { getByText } = await act(async () => render(<CheckoutScreen />));
 
     await waitFor(() => {
       expect(getByText('💎 Pay with TON Smart Contract')).toBeTruthy();
@@ -178,7 +178,7 @@ describe('Checkout Page Tests', () => {
   });
 
   it('should handle network errors during payment', async () => {
-    const { getByText } = await act(async () => render(<Checkout />));
+    const { getByText } = await act(async () => render(<CheckoutScreen />));
 
     await waitFor(() => {
       expect(getByText('💎 Pay with TON Smart Contract')).toBeTruthy();
@@ -197,7 +197,7 @@ describe('Checkout Page Tests', () => {
   });
 
   it('should show processing state during payment', async () => {
-    const { getByText, queryByText } = await act(async () => render(<Checkout />));
+    const { getByText, queryByText } = await act(async () => render(<CheckoutScreen />));
 
     await waitFor(() => {
       expect(getByText('💎 Pay with TON Smart Contract')).toBeTruthy();
@@ -224,7 +224,7 @@ describe('Checkout Page Tests', () => {
     // Mock empty cart
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify([]));
 
-    const { getByText } = await act(async () => render(<Checkout />));
+    const { getByText } = await act(async () => render(<CheckoutScreen />));
 
     await waitFor(() => {
       expect(getByText('Your cart is empty.')).toBeTruthy();
@@ -237,7 +237,7 @@ describe('Checkout Page Tests', () => {
     // Mock corrupted cart data
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('invalid json');
 
-    const { getByText } = await act(async () => render(<Checkout />));
+    const { getByText } = await act(async () => render(<CheckoutScreen />));
 
     await waitFor(() => {
       expect(getByText('Your cart is empty.')).toBeTruthy();
@@ -245,7 +245,7 @@ describe('Checkout Page Tests', () => {
   });
 
   it('should calculate correct order summary', async () => {
-    const { getByText } = await act(async () => render(<Checkout />));
+    const { getByText } = await act(async () => render(<CheckoutScreen />));
 
     await waitFor(() => {
       expect(getByText('Cyberpunk T-Shirt')).toBeTruthy();
@@ -261,7 +261,7 @@ describe('Checkout Page Tests', () => {
   });
 
   it('should display product details correctly', async () => {
-    const { getByText } = await act(async () => render(<Checkout />));
+    const { getByText } = await act(async () => render(<CheckoutScreen />));
 
     await waitFor(() => {
       expect(getByText('Cyberpunk T-Shirt')).toBeTruthy();
@@ -282,5 +282,15 @@ describe('Checkout Page Tests', () => {
     expect(getByText('Size: M')).toBeTruthy();
     expect(getByText('Color: Black')).toBeTruthy();
     expect(getByText('Quantity: 1')).toBeTruthy();
+  });
+  it('should handle checkout navigation', async () => {
+    const { getByText } = await act(async () => render(<CheckoutScreen />));
+
+    await waitFor(() => {
+      expect(getByText('💎 Pay with TON Smart Contract')).toBeTruthy();
+    });
+
+    // Verify checkout navigation elements are present
+    expect(getByText('💎 Pay with TON Smart Contract')).toBeTruthy();
   });
 });

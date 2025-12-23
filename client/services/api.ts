@@ -234,6 +234,17 @@ class ApiService {
     const response = await this.api.post('/hotels/book', { offerId, guests });
     return response.data;
   }
+
+  // Orders for OrderService
+  async createOrder(orderData: any) {
+    const response = await this.api.post('/order/create', orderData);
+    return response.data;
+  }
+
+  async getOrderHistory(walletAddress: string) {
+    const response = await this.api.get(`/order/history/${walletAddress}`);
+    return response.data;
+  }
 }
 
 export const apiService = new ApiService();

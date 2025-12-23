@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { getShopProducts } from '@/services/sanityClient';
+import { useCart } from '@/contexts/CartContext';
 
 export interface Product {
   _id: string;
@@ -24,8 +24,8 @@ export interface Product {
 }
 
 export default function ShopScreen() {
+  const { state: cartState, addToCart } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
-  const [cartItems, setCartItems] = useState<Product[]>([]);
   const [selectedSize, setSelectedSize] = useState<{ [key: string]: string }>({});
   const [selectedColor, setSelectedColor] = useState<{ [key: string]: string }>({});
   const [selectedQuantity, setSelectedQuantity] = useState<{ [key: string]: number }>({});
@@ -68,26 +68,11 @@ export default function ShopScreen() {
       return;
     }
 
-    const newCartItems = [...cartItems];
-    const existingItemIndex = newCartItems.findIndex(
-      (item) => item._id === product._id && item.size === size && item.color === color
-    );
-    if (existingItemIndex !== -1) {
-      // Update quantity for existing item
-      newCartItems[existingItemIndex].quantity = (newCartItems[existingItemIndex].quantity || 1) + quantity;
-    } else {
-      newCartItems.push({ ...product, size, color, quantity });
-    }
-
-    setCartItems(newCartItems);
-    await AsyncStorage.setItem('cartItems', JSON.stringify(newCartItems));
+    await addToCart(product._id, quantity, size, color);
   };
 
   const handleGoToCart = () => {
-    router.push({
-      pathname: '/cart',
-      params: { cartItems: encodeURIComponent(JSON.stringify(cartItems)) },
-    });
+    router.push('/cart');
   };
 
   const handleSelectSize = (productId: string, size: string) => {
