@@ -1,5 +1,6 @@
 import { tonService } from '../../services/tonService-updated';
 import { paymentService } from '../../services/paymentService';
+import axios from 'axios';
 
 export interface CreateInvoiceRequest {
   productDetails: string;
@@ -62,30 +63,44 @@ export class CreateInvoiceAPI {
         };
       }
 
-      // Create order on blockchain
-      const orderResult = await tonService.createOrder({
-        productDetails,
-        productImage
-      });
+      // Create order via HTTP request to server
+      try {
+        const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL || 'https://thruster-api.netlify.app'}/api/order/create`, {
+          userWallet: 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // Placeholder wallet address
+          items: [{
+            productId: 'invoice-product',
+            name: productDetails,
+            price: parseFloat(amount),
+            quantity: 1
+          }],
+          paymentMethod: 'TON_NATIVE'
+        });
 
-      if (!orderResult.success) {
+        if (!response.data.success) {
+          return {
+            success: false,
+            error: response.data.message || 'Failed to create order'
+          };
+        }
+
+        // Return invoice details
+        return {
+          success: true,
+          invoice: {
+            orderId: response.data.order.id,
+            productDetails,
+            productImage,
+            amount,
+            createdAt: new Date().toISOString()
+          }
+        };
+      } catch (error: any) {
+        console.error('Order creation error:', error);
         return {
           success: false,
-          error: orderResult.error || 'Failed to create order'
+          error: error.response?.data?.message || 'Failed to create order'
         };
       }
-
-      // Return invoice details
-      return {
-        success: true,
-        invoice: {
-          orderId: orderResult.orderId!,
-          productDetails,
-          productImage,
-          amount,
-          createdAt: new Date().toISOString()
-        }
-      };
 
     } catch (error) {
       console.error('Create invoice error:', error);
@@ -128,7 +143,7 @@ export class CreateInvoiceAPI {
       // In a real implementation, this would fetch invoice details from database
       // For now, we'll simulate based on order ID
 
-      const paymentStatus = await tonService.checkPaymentStatus(orderId);
+      const paymentStatus = await tonService.checkPaymentStatus(orderId.toString());
 
       return {
         success: true,

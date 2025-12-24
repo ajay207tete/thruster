@@ -9,7 +9,7 @@ import { useCart } from '../../contexts/CartContext';
 
 export default function CheckoutScreen() {
   const router = useRouter();
-  const { state: cartState } = useCart();
+  const { state: cartState, removeFromCart } = useCart();
   const cart = cartState.cart;
   const { cartItems: cartItemsParam } = useLocalSearchParams();
 
@@ -94,15 +94,50 @@ export default function CheckoutScreen() {
         <ThemedText style={styles.productInfo}>Qty: {item.quantity || 1}</ThemedText>
         <ThemedText style={styles.productPrice}>${item.price?.toFixed(2) || '0.00'}</ThemedText>
       </View>
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => handleRemoveItem(item._id)}
+      >
+        <Ionicons name="trash" size={20} color="#ff4444" />
+      </TouchableOpacity>
     </View>
   );
+
+  const handleRemoveItem = async (itemId: string) => {
+    try {
+      await removeFromCart(itemId);
+      // Update local state
+      setUrlCartItems(prev => prev.filter(item => item._id !== itemId));
+    } catch (error) {
+      console.error('Error removing item:', error);
+      Alert.alert('Error', 'Failed to remove item from cart');
+    }
+  };
 
   const handlePlaceOrder = () => {
     if (!shippingName || !shippingAddress || !shippingCity || !shippingPostalCode || !shippingCountry) {
       Alert.alert('Error', 'Please fill in all shipping details.');
       return;
     }
-    handleProceedToPayment();
+    // Navigate to payment page with cart items and shipping details
+    const cartItemsToUse = urlCartItems.length > 0 ? urlCartItems : (cart?.items || []);
+    const orderData = {
+      cartItems: cartItemsToUse,
+      shippingDetails: {
+        name: shippingName,
+        address: shippingAddress,
+        city: shippingCity,
+        postalCode: shippingPostalCode,
+        country: shippingCountry,
+      },
+      totalAmount: cartItemsToUse.reduce((total, item) => total + (item.price * (item.quantity || 1)), 0),
+    };
+    router.push({
+      pathname: '/payment',
+      params: {
+        orderData: encodeURIComponent(JSON.stringify(orderData)),
+      },
+    });
   };
 
   return (
@@ -314,5 +349,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     fontFamily: 'SpaceMono',
+  },
+  deleteButton: {
+    padding: 8,
+    marginLeft: 10,
   },
 });

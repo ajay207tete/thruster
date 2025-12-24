@@ -236,12 +236,12 @@ class ApiService {
   }
 
   // Orders for OrderService
-  async createOrder(orderData: any) {
+  async createOrderForOrderService(orderData: any) {
     const response = await this.api.post('/order/create', orderData);
     return response.data;
   }
 
-  async getOrderHistory(walletAddress: string) {
+  async getOrderHistoryForOrderService(walletAddress: string) {
     const response = await this.api.get(`/order/history/${walletAddress}`);
     return response.data;
   }

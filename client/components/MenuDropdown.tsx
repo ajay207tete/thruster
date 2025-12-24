@@ -31,9 +31,6 @@ const MenuDropdown = () => {
             <TouchableOpacity onPress={() => navigateTo('/my-order')} style={styles.item}>
               <Text style={styles.itemText}>My Order</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigateTo('/my-booking')} style={styles.item}>
-              <Text style={styles.itemText}>My Booking</Text>
-            </TouchableOpacity>
             <TouchableOpacity onPress={() => navigateTo('/rewards')} style={styles.item}>
               <Text style={styles.itemText}>Rewards</Text>
             </TouchableOpacity>

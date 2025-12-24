@@ -38,7 +38,7 @@ export class PaymentSuccessAPI {
       }
 
       // Check payment status on TON blockchain
-      const paymentStatus = await tonService.checkPaymentStatus(orderId);
+      const paymentStatus = await tonService.checkPaymentStatus(orderId.toString());
 
       if (!paymentStatus.isPaid) {
         return {
@@ -78,7 +78,7 @@ export class PaymentSuccessAPI {
    */
   static async verifyPayment(orderId: number): Promise<{ isPaid: boolean; transactionHash?: string; error?: string }> {
     try {
-      const paymentStatus = await tonService.checkPaymentStatus(orderId);
+      const paymentStatus = await tonService.checkPaymentStatus(orderId.toString());
       return {
         isPaid: paymentStatus.isPaid,
         transactionHash: paymentStatus.transactionHash
@@ -97,7 +97,7 @@ export class PaymentSuccessAPI {
    */
   static async getPaymentDetails(orderId: number): Promise<PaymentSuccessResponse> {
     try {
-      const paymentStatus = await tonService.checkPaymentStatus(orderId);
+      const paymentStatus = await tonService.checkPaymentStatus(orderId.toString());
 
       return {
         success: true,

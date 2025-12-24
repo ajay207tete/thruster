@@ -41,7 +41,7 @@ export class RefundAPI {
       }
 
       // Check if payment was made for this order
-      const paymentStatus = await tonService.checkPaymentStatus(orderId);
+      const paymentStatus = await tonService.checkPaymentStatus(orderId.toString());
       if (!paymentStatus.isPaid) {
         return {
           success: false,
@@ -94,7 +94,7 @@ export class RefundAPI {
   static async checkRefundEligibility(orderId: number): Promise<{ eligible: boolean; reason?: string; error?: string }> {
     try {
       // Check if order exists and payment was made
-      const paymentStatus = await tonService.checkPaymentStatus(orderId);
+      const paymentStatus = await tonService.checkPaymentStatus(orderId.toString());
 
       if (!paymentStatus.isPaid) {
         return {

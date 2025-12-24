@@ -310,6 +310,19 @@ export function CartProvider({ children }: CartProviderProps) {
       dispatch({ type: 'SET_ERROR', payload: null });
 
       dispatch({ type: 'REMOVE_ITEM', payload: itemId });
+
+      // Persist to AsyncStorage
+      if (state.cart) {
+        const filteredItems = state.cart.items.filter(item => item._id !== itemId);
+        const updatedCart = {
+          ...state.cart,
+          items: filteredItems,
+          totalItems: filteredItems.reduce((sum, item) => sum + item.quantity, 0),
+          totalPrice: filteredItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+          lastUpdated: new Date().toISOString()
+        };
+        await AsyncStorage.setItem('localCart', JSON.stringify(updatedCart));
+      }
     } catch (error: any) {
       console.error('Error removing from cart:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message });

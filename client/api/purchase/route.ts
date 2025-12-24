@@ -68,7 +68,7 @@ export class PurchaseAPI {
 
       if (paymentMethod === 'TON_NATIVE') {
         // Process TON native payment
-        const paymentResult = await tonService.sendPayment(amount, orderId);
+        const paymentResult = await tonService.sendPayment(orderId.toString(), parseFloat(amount));
         if (!paymentResult.success) {
           return {
             success: false,
@@ -138,7 +138,7 @@ export class PurchaseAPI {
    */
   static async getPurchaseStatus(orderId: number): Promise<PurchaseResponse> {
     try {
-      const paymentStatus = await tonService.checkPaymentStatus(orderId);
+      const paymentStatus = await tonService.checkPaymentStatus(orderId.toString());
 
       return {
         success: true,

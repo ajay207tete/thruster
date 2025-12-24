@@ -1,0 +1,3 @@
+- [x] Change FlatList numColumns from 1 to 2 for two-column layout
+- [x] Adjust productCard style to fit two columns (e.g., width: '48%')
+- [ ] Test the layout to ensure products display properly in two columns

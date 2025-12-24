@@ -134,8 +134,8 @@ export class PaymentService {
     try {
       console.log('Initializing TON Service...');
 
-      // Update TON service configuration using the proper method
-      tonService.updateConfig(this.config.ton, this.config.nowPayments.apiKey);
+      // Update TON service configuration
+      tonService.updateConfig(this.config.ton);
 
       // Test TON service connection
       const balance = await tonService.getContractBalance();
