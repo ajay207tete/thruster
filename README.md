@@ -1,6 +1,6 @@
-# Cyberpunk App
+# Thruster DApp
 
-A cyberpunk-themed e-commerce and travel booking application with TON blockchain integration.
+A Blockchain based e-commerce and travel booking application with TON blockchain integration.
 
 ## Features
 
