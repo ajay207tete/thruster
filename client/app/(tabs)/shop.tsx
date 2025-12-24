@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { getShopProducts } from '@/services/sanityClient';
+import { apiService } from '@/services/api';
 import { useCart } from '@/contexts/CartContext';
 
 export interface Product {
@@ -33,13 +33,13 @@ export default function ShopScreen() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        console.log('Fetching products from Sanity...');
-        const data = await getShopProducts();
+        console.log('Fetching products from backend API...');
+        const data = await apiService.getProducts();
         console.log('Fetched products:', data);
         console.log('Number of products:', data.length);
         setProducts(data);
       } catch (error) {
-        console.error('Failed to fetch Sanity products:', error);
+        console.error('Failed to fetch backend products:', error);
       }
     };
     fetchProducts();
