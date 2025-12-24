@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  functions = "dist/netlify/functions"
+  publish = "dist"
+  command="npm install"
+  publish="server"
+
+  [functions]
+  node_bundler="esbuild"

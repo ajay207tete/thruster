@@ -22,10 +22,9 @@
     "mongoose": "^7.5.0",
     "multer": "^2.0.2",
     "multer-gridfs-storage": "^5.0.2",
-    "ton-core": "^0.53.0",
-    "ton-api-client": "^0.1.0"
+    "ton-core": "^0.53.0"
   },
   "devDependencies": {
-    "netlify-cli": "^17.0.0"
+    "netlify-cli": "^23.13.0"
   }
 }

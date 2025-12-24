@@ -14,5 +14,8 @@
     "mongoose": "^8.18.1",
     "multer": "^2.0.2",
     "ton-stdlib": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }
