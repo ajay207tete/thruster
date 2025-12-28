@@ -1,4 +1,4 @@
-const axios = require('axios');
+import axios from 'axios';
 const { toNano, fromNano, beginCell, Address } = require('ton-core');
 
 class TonService {

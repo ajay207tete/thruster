@@ -1,5 +1,6 @@
 const express = require('express');
 const Order = require('../models/Order');
+const User = require('../models/User');
 
 const router = express.Router();
 
@@ -60,9 +61,16 @@ router.post('/create', async (req, res) => {
     // Calculate total amount
     const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+    // Find or create user
+    let user = await User.findOne({ walletAddress: userWallet.toLowerCase() });
+    if (!user) {
+      user = new User({ walletAddress: userWallet.toLowerCase() });
+      await user.save();
+    }
+
     // Create order
     const order = new Order({
-      userWallet: userWallet.toLowerCase(),
+      userId: user._id,
       items,
       totalAmount,
       paymentMethod
@@ -74,7 +82,7 @@ router.post('/create', async (req, res) => {
       success: true,
       order: {
         id: order._id,
-        userWallet: order.userWallet,
+        userWallet: user.walletAddress,
         items: order.items,
         totalAmount: order.totalAmount,
         paymentMethod: order.paymentMethod,
@@ -106,8 +114,17 @@ router.get('/history/:walletAddress', async (req, res) => {
       });
     }
 
+    // Find user by wallet address
+    const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
+    if (!user) {
+      return res.json({
+        success: true,
+        orders: []
+      });
+    }
+
     const orders = await Order.find({
-      userWallet: walletAddress.toLowerCase()
+      userId: user._id
     }).sort({ createdAt: -1 });
 
     res.json({

@@ -5,6 +5,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { TonConnectUIProvider, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
+import { Analytics } from '@vercel/analytics/react';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { CartProvider } from '@/contexts/CartContext';
@@ -40,6 +41,7 @@ export default function RootLayout() {
           </ThemeProvider>
         </CartProvider>
       </TonConnectInitializer>
+      <Analytics />
     </TonConnectUIProvider>
   );
 }

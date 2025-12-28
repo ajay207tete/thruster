@@ -1,4 +1,4 @@
-const axios = require('axios');
+import axios from 'axios';
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 require('dotenv').config();

@@ -8,8 +8,14 @@ class OrderService {
    */
   async createOrderFromCart(walletAddress, paymentMethod) {
     try {
+      // Find user by wallet address
+      const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
+      if (!user) {
+        throw new Error('User not found');
+      }
+
       // Get user's cart
-      const cart = await Cart.findOne({ walletAddress: walletAddress.toLowerCase() })
+      const cart = await Cart.findOne({ userId: user._id })
         .populate('items.productId');
 
       if (!cart || cart.items.length === 0) {
@@ -31,7 +37,7 @@ class OrderService {
 
       // Create order
       const order = new Order({
-        userWallet: walletAddress.toLowerCase(),
+        userId: user._id,
         items: orderItems,
         totalAmount,
         paymentMethod,
@@ -84,8 +90,23 @@ class OrderService {
    */
   async getOrdersByWallet(walletAddress, page = 1, limit = 10) {
     try {
+      // Find user by wallet address
+      const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
+      if (!user) {
+        return {
+          success: true,
+          orders: [],
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: 0,
+            pages: 0
+          }
+        };
+      }
+
       const orders = await Order.find({
-        userWallet: walletAddress.toLowerCase()
+        userId: user._id
       })
       .populate('items.productId', 'name price image')
       .sort({ createdAt: -1 })
@@ -94,7 +115,7 @@ class OrderService {
       .lean();
 
       const total = await Order.countDocuments({
-        userWallet: walletAddress.toLowerCase()
+        userId: user._id
       });
 
       return {
@@ -150,8 +171,11 @@ class OrderService {
 
       // If payment is successful, trigger NFT minting
       if (paymentStatus === 'PAID' && order.paymentMethod === 'TON_NATIVE') {
-        const nftService = require('./nft.service');
-        await nftService.mintNFT(order._id, order.userWallet);
+        const user = await User.findById(order.userId);
+        if (user) {
+          const nftService = require('./nft.service');
+          await nftService.mintNFT(order._id, user.walletAddress);
+        }
       }
 
       return { success: true, order };
@@ -214,9 +238,15 @@ class OrderService {
    */
   async cancelOrder(orderId, walletAddress) {
     try {
+      // Find user by wallet address
+      const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+
       const order = await Order.findOne({
         _id: orderId,
-        userWallet: walletAddress.toLowerCase(),
+        userId: user._id,
         paymentStatus: 'PENDING'
       });
 

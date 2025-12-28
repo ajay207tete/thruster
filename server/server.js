@@ -115,16 +115,27 @@ app.get('/health', (req, res) => {
 });
 
 // Routes
-app.use('/api/products', require('./routes/products'));
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/order', require('./routes/order'));
-app.use('/api/payment', require('./routes/payment'));
-app.use('/api/payment', require('./routes/payment.routes'));
-app.use('/api/orders', require('./routes/orders'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/hotels', require('./routes/hotels'));
-app.use('/api/paymentCallback', require('./routes/paymentCallback'));
-app.use('/api/cart', require('./routes/cart'));
+import productsRoutes from './routes/products.js';
+import authRoutes from './routes/auth.js';
+import orderRoutes from './routes/order.js';
+import paymentRoutes from './routes/payment.js';
+import paymentRoutes2 from './routes/payment.routes.js';
+import ordersRoutes from './routes/orders.js';
+import usersRoutes from './routes/users.js';
+import hotelsRoutes from './routes/hotels.js';
+import paymentCallbackRoutes from './routes/paymentCallback.js';
+import cartRoutes from './routes/cart.js';
+
+app.use('/api/products', productsRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/order', orderRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/payment', paymentRoutes2);
+app.use('/api/orders', ordersRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/hotels', hotelsRoutes);
+app.use('/api/paymentCallback', paymentCallbackRoutes);
+app.use('/api/cart', cartRoutes);
 
 // Route to get image by filename
 app.get('/images/:filename', (req, res) => {
@@ -187,4 +198,4 @@ app.listen(PORT, () => {
 
 // Export gfs and upload for use in routes
 const getGfs = () => gfs;
-module.exports = { gfs: getGfs, upload };
+export { gfs: getGfs, upload };

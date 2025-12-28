@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const Order = require('../models/Order');
-const axios = require('axios');
+import axios from 'axios';
 
 const router = express.Router();
 

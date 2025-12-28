@@ -23,16 +23,10 @@ const orderItemSchema = new mongoose.Schema({
 });
 
 const orderSchema = new mongoose.Schema({
-  userWallet: {
-    type: String,
-    required: true,
-    lowercase: true,
-    validate: {
-      validator: function(v) {
-        return /^UQ[A-Za-z0-9_-]{46}$/.test(v) || /^EQ[A-Za-z0-9_-]{46}$/.test(v);
-      },
-      message: 'Invalid TON wallet address format'
-    }
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
   items: [orderItemSchema],
   totalAmount: {
@@ -70,7 +64,7 @@ const orderSchema = new mongoose.Schema({
   }
 });
 
-orderSchema.index({ userWallet: 1, createdAt: -1 });
+orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ paymentId: 1 });
 orderSchema.index({ paymentStatus: 1 });
 

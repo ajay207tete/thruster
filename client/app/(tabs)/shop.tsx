@@ -26,6 +26,8 @@ export interface Product {
 export default function ShopScreen() {
   const { state: cartState, addToCart } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<{ [key: string]: string }>({});
   const [selectedColor, setSelectedColor] = useState<{ [key: string]: string }>({});
   const [selectedQuantity, setSelectedQuantity] = useState<{ [key: string]: number }>({});
@@ -33,13 +35,26 @@ export default function ShopScreen() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        setLoading(true);
+        setError(null);
         console.log('Fetching products from backend API...');
         const data = await apiService.getProducts();
         console.log('Fetched products:', data);
         console.log('Number of products:', data.length);
-        setProducts(data);
+
+        // Ensure each product has image and description fields
+        const processedProducts = data.map((product: any) => ({
+          ...product,
+          image: product.image || null,
+          description: product.description || 'No description available'
+        }));
+
+        setProducts(processedProducts);
       } catch (error) {
         console.error('Failed to fetch backend products:', error);
+        setError('Failed to load products. Please try again.');
+      } finally {
+        setLoading(false);
       }
     };
     fetchProducts();
@@ -80,7 +95,7 @@ export default function ShopScreen() {
       <TouchableOpacity onPress={() => handleViewProduct(item)} style={styles.productImageContainer}>
         {item.image ? (
           <Image
-            source={{ uri: item.image }}
+            source={{ uri: apiService.getImageUrl(item.image) }}
             style={styles.productImage}
             resizeMode="contain"
             onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
@@ -94,6 +109,7 @@ export default function ShopScreen() {
 
       <View style={styles.productInfo}>
         <ThemedText style={styles.productName}>{item.name}</ThemedText>
+        <ThemedText style={styles.productDescription}>{item.description}</ThemedText>
         <ThemedText style={styles.productPrice}>${item.price}</ThemedText>
 
         <View style={styles.optionsContainer}>
@@ -186,7 +202,6 @@ export default function ShopScreen() {
           </TouchableOpacity>
         </View>
         <View style={styles.centerSection}>
-          <Image source={require('../../assets/images/icon.png')} style={styles.logo} />
         </View>
         <View style={styles.rightSection}>
           <TouchableOpacity onPress={() => router.push('/cart')} style={styles.cartButton}>
@@ -201,11 +216,20 @@ export default function ShopScreen() {
       </View>
 
       <View style={styles.content}>
-        <ThemedText style={styles.subtitle}>
-          Discover cutting-edge fashion and accessories
-        </ThemedText>
-
-        {products.length > 0 ? (
+        {loading ? (
+          <View style={styles.loadingState}>
+            <Ionicons name="refresh" size={60} color="#00ff00" />
+            <ThemedText style={styles.loadingText}>Loading products...</ThemedText>
+          </View>
+        ) : error ? (
+          <View style={styles.errorState}>
+            <Ionicons name="alert-circle" size={60} color="#ff0000" />
+            <ThemedText style={styles.errorText}>{error}</ThemedText>
+            <TouchableOpacity style={styles.retryButton} onPress={() => window.location.reload()}>
+              <ThemedText style={styles.retryText}>Retry</ThemedText>
+            </TouchableOpacity>
+          </View>
+        ) : products.length > 0 ? (
           <FlatList
             data={products}
             keyExtractor={(item) => item._id}
@@ -343,6 +367,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#00ff00',
+    marginBottom: 4,
+    fontFamily: 'SpaceMono',
+  },
+  productDescription: {
+    fontSize: 14,
+    color: '#cccccc',
     marginBottom: 8,
     fontFamily: 'SpaceMono',
   },
@@ -438,6 +468,44 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#666666',
     marginTop: 16,
+    fontFamily: 'SpaceMono',
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#00ff00',
+    marginTop: 16,
+    fontFamily: 'SpaceMono',
+  },
+  errorState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#ff0000',
+    marginTop: 16,
+    textAlign: 'center',
+    fontFamily: 'SpaceMono',
+  },
+  retryButton: {
+    backgroundColor: '#00ff00',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginTop: 16,
+  },
+  retryText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: 'bold',
     fontFamily: 'SpaceMono',
   },
 });
