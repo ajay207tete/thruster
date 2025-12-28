@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { TonConnectUIProvider, useTonConnectUI } from '@tonconnect/ui-react';
-import WebApp from '@twa-dev/sdk';
+import { TonConnectUIProvider } from '@tonconnect/ui-react';
+import { Analytics } from '@vercel/analytics/react';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { CartProvider } from '@/contexts/CartContext';
-import { tonService } from '@/services/tonService-updated';
 import { TonConnectInitializer } from '@/components/TonConnectInitializer';
 
 export default function RootLayout() {
@@ -37,6 +36,7 @@ export default function RootLayout() {
               <Stack.Screen name="+not-found" />
             </Stack>
             <StatusBar style="auto" />
+            <Analytics />
           </ThemeProvider>
         </CartProvider>
       </TonConnectInitializer>
