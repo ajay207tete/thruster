@@ -181,7 +181,9 @@ export default function ShopScreen() {
     <ThemedView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.leftSection}>
-          <ThemedText style={styles.headerTitle}>Shop</ThemedText>
+          <TouchableOpacity onPress={() => router.push('/')} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#00ff00" />
+          </TouchableOpacity>
         </View>
         <View style={styles.centerSection}>
           <Image source={require('../../assets/images/icon.png')} style={styles.logo} />
@@ -240,6 +242,8 @@ const styles = StyleSheet.create({
   },
   leftSection: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   centerSection: {
     flexDirection: 'row',
@@ -261,6 +265,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#00ff00',
     fontFamily: 'SpaceMono',
+  },
+  backButton: {
+    padding: 8,
   },
   cartButton: {
     position: 'relative',
@@ -298,13 +305,21 @@ const styles = StyleSheet.create({
   },
   productCard: {
     backgroundColor: '#111111',
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 16,
+    marginBottom: 20,
     marginHorizontal: 8,
     borderWidth: 1,
     borderColor: '#00ff00',
     overflow: 'hidden',
     width: '48%',
+    shadowColor: '#00ff00',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   productImageContainer: {
     width: '100%',
