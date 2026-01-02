@@ -140,4 +140,4 @@ cartSchema.statics.findOrCreateCart = async function(userId, sessionId = null, i
   return cart;
 };
 
-module.exports = mongoose.model('Cart', cartSchema);
+export default mongoose.model('Cart', cartSchema);

@@ -7,7 +7,7 @@ export interface Product {
   _id: string;
   name: string;
   description: string;
-  image: string; // GridFS filename
+  imageUrl: string | null; // Direct image URL
   sizes: string[];
   colors: string[];
   price: number;
@@ -110,46 +110,32 @@ class ApiService {
     return response.data;
   }
 
-  async createProduct(productData: { name: string; description: string; price: number; image: File; sizes?: string[]; colors?: string[]; category?: string; stock?: number }) {
-    const formData = new FormData();
-    formData.append('name', productData.name);
-    formData.append('description', productData.description);
-    formData.append('price', productData.price.toString());
-    formData.append('image', productData.image);
-    if (productData.sizes) formData.append('sizes', JSON.stringify(productData.sizes));
-    if (productData.colors) formData.append('colors', JSON.stringify(productData.colors));
-    if (productData.category) formData.append('category', productData.category);
-    if (productData.stock) formData.append('stock', productData.stock.toString());
-
-    const response = await axios.post(`${API_BASE_URL}/products`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+  async createProduct(productData: { name: string; description: string; price: number; imageUrl: string; sizes?: string[]; colors?: string[]; category?: string; stock?: number }) {
+    const response = await this.api.post('/products', {
+      name: productData.name,
+      description: productData.description,
+      price: productData.price,
+      imageUrl: productData.imageUrl,
+      sizes: productData.sizes || [],
+      colors: productData.colors || [],
+      category: productData.category || 'clothing',
+      stock: productData.stock || 0,
     });
     return response.data;
   }
 
-  async updateProduct(id: string, productData: { name?: string; description?: string; price?: number; image?: File; sizes?: string[]; colors?: string[]; category?: string; stock?: number }) {
-    const formData = new FormData();
-    if (productData.name) formData.append('name', productData.name);
-    if (productData.description) formData.append('description', productData.description);
-    if (productData.price) formData.append('price', productData.price.toString());
-    if (productData.image) formData.append('image', productData.image);
-    if (productData.sizes) formData.append('sizes', JSON.stringify(productData.sizes));
-    if (productData.colors) formData.append('colors', JSON.stringify(productData.colors));
-    if (productData.category) formData.append('category', productData.category);
-    if (productData.stock) formData.append('stock', productData.stock.toString());
-
-    const response = await axios.put(`${API_BASE_URL}/products/${id}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+  async updateProduct(id: string, productData: { name?: string; description?: string; price?: number; imageUrl?: string; sizes?: string[]; colors?: string[]; category?: string; stock?: number }) {
+    const response = await this.api.put(`/products/${id}`, {
+      name: productData.name,
+      description: productData.description,
+      price: productData.price,
+      imageUrl: productData.imageUrl,
+      sizes: productData.sizes,
+      colors: productData.colors,
+      category: productData.category,
+      stock: productData.stock,
     });
     return response.data;
-  }
-
-  getImageUrl(filename: string) {
-    return `${API_BASE_URL.replace('/api', '')}/images/${filename}`;
   }
 
   // Users

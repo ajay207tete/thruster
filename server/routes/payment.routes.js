@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import tonService from '../services/ton.service.js';
+import Order from '../models/Order.js';
+
 const router = express.Router();
-const tonService = require('../services/ton.service');
-const Order = require('../models/Order');
 
 // Environment variables
 const TON_RECEIVER_WALLET = process.env.TON_RECEIVER_WALLET;
@@ -215,4 +216,4 @@ router.post('/nowpayments/create', async (req, res) => {
   });
 });
 
-module.exports = router;
+export default router;

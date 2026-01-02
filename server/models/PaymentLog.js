@@ -29,4 +29,4 @@ const paymentLogSchema = new mongoose.Schema({
 paymentLogSchema.index({ orderId: 1, createdAt: -1 });
 paymentLogSchema.index({ provider: 1, status: 1 });
 
-module.exports = mongoose.model('PaymentLog', paymentLogSchema);
+export default mongoose.model('PaymentLog', paymentLogSchema);

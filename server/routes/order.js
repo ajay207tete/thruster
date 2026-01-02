@@ -1,6 +1,6 @@
-const express = require('express');
-const Order = require('../models/Order');
-const User = require('../models/User');
+import express from 'express';
+import Order from '../models/Order.js';
+import User from '../models/User.js';
 
 const router = express.Router();
 
@@ -152,4 +152,4 @@ router.get('/history/:walletAddress', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

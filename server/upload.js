@@ -1,5 +1,5 @@
-const { GridFsStorage } = require('multer-gridfs-storage');
-const multer = require('multer');
+import { GridFsStorage } from 'multer-gridfs-storage';
+import multer from 'multer';
 
 // Create storage engine
 const storage = new GridFsStorage({
@@ -18,4 +18,4 @@ const storage = new GridFsStorage({
 
 const upload = multer({ storage });
 
-module.exports = upload;
+export default upload;

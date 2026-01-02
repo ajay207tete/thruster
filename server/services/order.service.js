@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Cart = require('../models/Cart');
+const Reward = require('../models/Reward');
 
 class OrderService {
   /**
@@ -169,12 +170,34 @@ class OrderService {
         return { success: false, error: 'Order not found' };
       }
 
-      // If payment is successful, trigger NFT minting
-      if (paymentStatus === 'PAID' && order.paymentMethod === 'TON_NATIVE') {
+      // If payment is successful, trigger NFT minting and award purchase points
+      if (paymentStatus === 'PAID') {
         const user = await User.findById(order.userId);
         if (user) {
-          const nftService = require('./nft.service');
-          await nftService.mintNFT(order._id, user.walletAddress);
+          // Award purchase points (1 TON = 10 points)
+          const purchasePoints = Math.floor(order.totalAmount * 10);
+
+          // Create reward record
+          const reward = new Reward({
+            userWallet: user.walletAddress,
+            actionType: 'PURCHASE',
+            platform: 'STORE_PURCHASE',
+            points: purchasePoints,
+            status: 'COMPLETED',
+            orderId: order._id
+          });
+
+          await reward.save();
+
+          // Update user's total points
+          user.totalPoints += purchasePoints;
+          await user.save();
+
+          // Trigger NFT minting for TON payments
+          if (order.paymentMethod === 'TON_NATIVE') {
+            const nftService = require('./nft.service');
+            await nftService.mintNFT(order._id, user.walletAddress);
+          }
         }
       }
 
@@ -346,4 +369,4 @@ class OrderService {
   }
 }
 
-module.exports = new OrderService();
+export default new OrderService();

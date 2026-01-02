@@ -13,7 +13,7 @@ export interface Product {
   name: string;
   description: string;
   price: number;
-  image: string | null;
+  imageUrl: string | null;
   sizes: ('S' | 'M' | 'L')[];
   colors: string[];
   category: string;
@@ -42,10 +42,10 @@ export default function ShopScreen() {
         console.log('Fetched products:', data);
         console.log('Number of products:', data.length);
 
-        // Ensure each product has image and description fields
+        // Ensure each product has imageUrl and description fields
         const processedProducts = data.map((product: any) => ({
           ...product,
-          image: product.image || null,
+          imageUrl: product.imageUrl || null,
           description: product.description || 'No description available'
         }));
 
@@ -93,9 +93,9 @@ export default function ShopScreen() {
   const renderProduct = ({ item }: { item: Product }) => (
     <View style={styles.productCard}>
       <TouchableOpacity onPress={() => handleViewProduct(item)} style={styles.productImageContainer}>
-        {item.image ? (
+        {item.imageUrl ? (
           <Image
-            source={{ uri: apiService.getImageUrl(item.image) }}
+            source={{ uri: item.imageUrl }}
             style={styles.productImage}
             resizeMode="contain"
             onError={(e) => console.log('Image load error:', e.nativeEvent.error)}

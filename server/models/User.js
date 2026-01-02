@@ -20,6 +20,11 @@ const userSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
     default: Date.now
+  },
+  totalPoints: {
+    type: Number,
+    default: 0,
+    min: 0
   }
 });
 
@@ -31,4 +36,4 @@ userSchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('User', userSchema);
+export default mongoose.model('User', userSchema);

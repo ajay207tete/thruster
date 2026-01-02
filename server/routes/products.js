@@ -1,35 +1,20 @@
-const express = require('express');
-const Product = require('../models/Product');
-const upload = require('../upload');
-const { gfs } = require('../server');
-const { validateProduct } = require('../middleware/validation');
+import express from 'express';
+import Product from '../models/Product.js';
+import { getShopProducts, getShopProductById } from '../services/sanityClient.js';
 
 const router = express.Router();
-
-// Helper function to get filename from GridFS file ID
-const getFilenameFromId = (fileId) => {
-  return new Promise((resolve, reject) => {
-    if (!gfs) {
-      return reject(new Error('GridFS not initialized'));
-    }
-    gfs.files.findOne({ _id: fileId }, (err, file) => {
-      if (err) return reject(err);
-      if (!file) return resolve(null);
-      resolve(file.filename);
-    });
-  });
-};
 
 // GET all products
 router.get('/', async (req, res) => {
   try {
-    const products = await Product.find();
-    const productsWithImages = await Promise.all(products.map(async (product) => {
-      const filename = await getFilenameFromId(product.image);
-      return { ...product.toObject(), image: filename };
-    }));
-    res.json(productsWithImages);
+    console.log('Fetching products from Sanity...');
+    const products = await getShopProducts();
+    console.log('Products from Sanity:', products.length);
+
+    console.log('Final products with images:', products);
+    res.json(products);
   } catch (err) {
+    console.error('Error fetching products:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -37,58 +22,77 @@ router.get('/', async (req, res) => {
 // GET a specific product
 router.get('/:id', async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: 'Product not found' });
-    const filename = await getFilenameFromId(product.image);
-    res.json({ ...product.toObject(), image: filename });
+    console.log('Fetching product by ID:', req.params.id);
+    const product = await getShopProductById(req.params.id);
+    if (!product) {
+      console.log('Product not found in Sanity');
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    console.log('Product with image:', product);
+    res.json(product);
   } catch (err) {
+    console.error('Error fetching product:', err);
     res.status(500).json({ message: err.message });
   }
 });
 
 // CREATE a new product
-router.post('/', upload.single('image'), validateProduct, async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: 'No image file provided' });
-  }
-
-  const product = new Product({
-    name: req.body.name,
-    description: req.body.description,
-    price: req.body.price,
-    image: req.file.id, // GridFS file ID
-    sizes: req.body.sizes,
-    colors: req.body.colors,
-    category: req.body.category,
-    stock: req.body.stock,
-  });
-
+router.post('/', async (req, res) => {
   try {
+    console.log('Creating new product:', req.body);
+
+    // Validate required fields
+    const { name, description, price, imageUrl, sizes, colors, category, stock } = req.body;
+    if (!name || !description || !price || !imageUrl) {
+      return res.status(400).json({ message: 'Missing required fields: name, description, price, imageUrl' });
+    }
+
+    const product = new Product({
+      name,
+      description,
+      price,
+      imageUrl, // Sanity image URL
+      sizes: sizes || [],
+      colors: colors || [],
+      category: category || 'clothing',
+      stock: stock || 0,
+    });
+
     const newProduct = await product.save();
+    console.log('Product created:', newProduct);
     res.status(201).json(newProduct);
   } catch (err) {
+    console.error('Error creating product:', err);
     res.status(400).json({ message: err.message });
   }
 });
 
 // UPDATE a product
-router.put('/:id', upload.single('image'), validateProduct, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
+    console.log('Updating product:', req.params.id, req.body);
     const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: 'Product not found' });
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
 
-    if (req.body.name) product.name = req.body.name;
-    if (req.body.description) product.description = req.body.description;
-    if (req.body.price) product.price = req.body.price;
-    if (req.file) product.image = req.file.id; // Update image if provided
-    if (req.body.sizes) product.sizes = req.body.sizes;
-    if (req.body.colors) product.colors = req.body.colors;
-    if (req.body.category) product.category = req.body.category;
-    if (req.body.stock) product.stock = req.body.stock;
+    const { name, description, price, imageUrl, sizes, colors, category, stock } = req.body;
+
+    if (name) product.name = name;
+    if (description) product.description = description;
+    if (price) product.price = price;
+    if (imageUrl) product.imageUrl = imageUrl; // Update image URL if provided
+    if (sizes) product.sizes = sizes;
+    if (colors) product.colors = colors;
+    if (category) product.category = category;
+    if (stock !== undefined) product.stock = stock;
 
     const updatedProduct = await product.save();
+    console.log('Product updated:', updatedProduct);
     res.json(updatedProduct);
   } catch (err) {
+    console.error('Error updating product:', err);
     res.status(400).json({ message: err.message });
   }
 });
@@ -96,14 +100,19 @@ router.put('/:id', upload.single('image'), validateProduct, async (req, res) => 
 // DELETE a product
 router.delete('/:id', async (req, res) => {
   try {
+    console.log('Deleting product:', req.params.id);
     const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: 'Product not found' });
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
 
-    await product.remove();
+    await Product.deleteOne({ _id: req.params.id });
+    console.log('Product deleted');
     res.json({ message: 'Product deleted' });
   } catch (err) {
+    console.error('Error deleting product:', err);
     res.status(500).json({ message: err.message });
   }
 });
 
-module.exports = router;
+export default router;

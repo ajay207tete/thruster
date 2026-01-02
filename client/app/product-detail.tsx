@@ -13,7 +13,7 @@ export interface Product {
   name: string;
   description: string;
   price: number;
-  image: string | null;
+  imageUrl: string | null;
   sizes: ('S' | 'M' | 'L')[];
   colors: string[];
   category: string;
@@ -129,9 +129,9 @@ export default function ProductDetailScreen() {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.imageContainer}>
-          {product.image ? (
+          {product.imageUrl ? (
             <Image
-              source={{ uri: product.image }}
+              source={{ uri: product.imageUrl }}
               style={styles.productImage}
               resizeMode="contain"
             />

@@ -1,3 +1,3 @@
-- [x] Change FlatList numColumns from 1 to 2 for two-column layout
-- [x] Adjust productCard style to fit two columns (e.g., width: '48%')
-- [ ] Test the layout to ensure products display properly in two columns
+- [x] Investigate why product images aren't showing on shop.tsx page
+- [x] Fix the image URL construction in server/routes/products.js for GET all products
+- [ ] Test the fix by running the app and checking if images load

@@ -363,4 +363,4 @@ class NowPaymentsService {
   }
 }
 
-module.exports = new NowPaymentsService();
+export default new NowPaymentsService();

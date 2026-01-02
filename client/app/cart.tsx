@@ -35,8 +35,8 @@ export default function CartScreen() {
 
   const renderCartItem = ({ item }: { item: any }) => (
     <View style={styles.cartItem}>
-      {item.product?.image ? (
-        <Image source={{ uri: item.product.image }} style={styles.itemImage} />
+      {item.product?.imageUrl ? (
+        <Image source={{ uri: item.product.imageUrl }} style={styles.itemImage} />
       ) : (
         <Ionicons name="shirt" size={40} color="#00ff00" style={styles.itemIcon} />
       )}

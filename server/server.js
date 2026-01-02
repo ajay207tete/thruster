@@ -1,9 +1,11 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const Grid = require('gridfs-stream');
-const upload = require('./upload');
-require('dotenv').config();
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import Grid from 'gridfs-stream';
+import upload from './upload.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Validate required environment variables
 const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
@@ -198,4 +200,4 @@ app.listen(PORT, () => {
 
 // Export gfs and upload for use in routes
 const getGfs = () => gfs;
-export { gfs: getGfs, upload };
+export { getGfs as gfs, upload };

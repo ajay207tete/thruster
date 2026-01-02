@@ -85,4 +85,4 @@ router.post('/:id/bookings', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
