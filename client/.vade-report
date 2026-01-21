@@ -1,0 +1,54 @@
+# Vercel Speed Insights Integration - Implementation Report
+
+## Overview
+Successfully implemented Vercel Speed Insights for the thruster (cyberpunk-app) project, a React Native Expo web application. The integration enables performance monitoring and metric collection on the deployed application.
+
+## What Was Implemented
+
+### 1. Package Installation
+- Added `@vercel/speed-insights` (version ^1.3.1) to project dependencies
+- Updated `client/package.json` and `client/package-lock.json` with the new dependency
+- The package was installed successfully without breaking existing dependencies
+
+### 2. Component Integration
+- Modified `client/app/_layout.tsx` to import and integrate the SpeedInsights component
+- Added import statement: `import { SpeedInsights } from '@vercel/speed-insights/react'`
+- Added `<SpeedInsights />` component in the RootLayout JSX
+- Positioned the component after the Analytics component to maintain consistent tracking setup
+
+## Files Modified
+1. **client/package.json** - Added @vercel/speed-insights dependency
+2. **client/package-lock.json** - Updated lock file with new dependency
+3. **client/app/_layout.tsx** - Integrated SpeedInsights component
+
+## Implementation Details
+
+### Framework Selection
+The project uses:
+- React 19.0.0 and react-dom 19.0.0
+- React Native with Expo Router for web deployment
+- The `@vercel/speed-insights/react` export was selected as it's the appropriate choice for React web applications
+- This aligns with existing Vercel Analytics integration already in place
+
+### Placement Strategy
+- The SpeedInsights component was added to the root layout (`_layout.tsx`) to ensure it's initialized once at the application level
+- Positioned alongside the existing Analytics component for consistency
+- Placed within the TonConnectUIProvider context to ensure it's part of the main application tree
+
+## Build Verification
+- Successfully built the project with `npm run build` in the web platform
+- Build completed without errors, generating 26 static routes
+- Linting confirmed no new errors were introduced (pre-existing warnings remain)
+- Verified SpeedInsights code is present in the bundled output
+
+## Next Steps (For User/DevOps)
+1. **Enable Speed Insights**: Go to Vercel dashboard → Select Project → Speed Insights tab → Click Enable
+2. **Deploy**: Deploy the application to Vercel using `vercel deploy` or by connecting git repository
+3. **View Dashboard**: After deployment and users visiting the site, metrics will appear in the Vercel dashboard
+
+## Notes
+- The implementation follows Vercel's official guidelines for React applications
+- Compatible with the existing @vercel/analytics integration
+- No breaking changes to existing functionality
+- The script will inject `/_vercel/speed-insights/script.js` after deployment (automatically handled by Vercel)
+- Supports performance metrics collection for Core Web Vitals and custom metrics

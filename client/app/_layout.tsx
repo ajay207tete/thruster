@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { TonConnectUIProvider, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { CartProvider } from '@/contexts/CartContext';
@@ -42,6 +43,7 @@ export default function RootLayout() {
         </CartProvider>
       </TonConnectInitializer>
       <Analytics />
+      <SpeedInsights />
     </TonConnectUIProvider>
   );
 }
