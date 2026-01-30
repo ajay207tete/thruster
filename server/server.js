@@ -1,8 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import Grid from 'gridfs-stream';
-import upload from './upload.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -18,6 +16,7 @@ if (missingEnvVars.length > 0) {
 }
 
 console.log('Environment variables validated successfully.');
+console.log(`JWT_SECRET loaded: ${!!process.env.JWT_SECRET}`);
 console.log(`Server starting in ${process.env.NODE_ENV || 'development'} mode`);
 
 const app = express();
@@ -68,16 +67,6 @@ const mongoOptions = {
   socketTimeoutMS: 45000,
 };
 
-const conn = mongoose.createConnection(process.env.MONGODB_URI, mongoOptions);
-
-let gfs;
-conn.once('open', () => {
-  // Init stream
-  gfs = Grid(conn.db, mongoose.mongo);
-  gfs.collection('uploads');
-  console.log('GridFS initialized');
-});
-
 // Connect mongoose main connection once
 mongoose.connect(process.env.MONGODB_URI, mongoOptions)
   .then(() => console.log('MongoDB connected successfully'))
@@ -124,7 +113,8 @@ import paymentRoutes from './routes/payment.js';
 import paymentRoutes2 from './routes/payment.routes.js';
 import ordersRoutes from './routes/orders.js';
 import usersRoutes from './routes/users.js';
-import hotelsRoutes from './routes/hotels.js';
+import activitiesRoutes from './routes/activities.js';
+
 import paymentCallbackRoutes from './routes/paymentCallback.js';
 import cartRoutes from './routes/cart.js';
 
@@ -135,34 +125,9 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/payment', paymentRoutes2);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/users', usersRoutes);
-app.use('/api/hotels', hotelsRoutes);
+app.use('/api/activities', activitiesRoutes);
 app.use('/api/paymentCallback', paymentCallbackRoutes);
 app.use('/api/cart', cartRoutes);
-
-// Route to get image by filename
-app.get('/images/:filename', (req, res) => {
-  if (!gfs) {
-    return res.status(500).json({ err: 'GridFS not initialized' });
-  }
-  gfs.files.findOne({ filename: req.params.filename }, (err, file) => {
-    if (!file || file.length === 0) {
-      return res.status(404).json({
-        err: 'No file exists'
-      });
-    }
-
-    // Check if image
-    if (file.contentType === 'image/jpeg' || file.contentType === 'image/png' || file.contentType === 'image/webp') {
-      // Read output to browser
-      const readstream = gfs.createReadStream(file.filename);
-      readstream.pipe(res);
-    } else {
-      res.status(404).json({
-        err: 'Not an image'
-      });
-    }
-  });
-});
 
 // Basic route
 app.get('/', (req, res) => {
@@ -197,7 +162,3 @@ app.listen(PORT, () => {
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
   console.log(`📚 API Documentation: http://localhost:${PORT}`);
 });
-
-// Export gfs and upload for use in routes
-const getGfs = () => gfs;
-export { getGfs as gfs, upload };

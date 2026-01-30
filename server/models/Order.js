@@ -1,78 +1,64 @@
-const mongoose = require('mongoose');
-
-const orderItemSchema = new mongoose.Schema({
-  productId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Product',
-    required: true
-  },
-  name: {
-    type: String,
-    required: true
-  },
-  price: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  quantity: {
-    type: Number,
-    required: true,
-    min: 1
-  }
-});
+import mongoose from 'mongoose';
 
 const orderSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+  userWalletAddress: {
+    type: String,
+    required: true,
+    index: true
   },
-  items: [orderItemSchema],
+  products: [{
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Product',
+      required: true
+    },
+    title: {
+      type: String,
+      required: true
+    },
+    price: {
+      type: Number,
+      required: true
+    },
+    qty: {
+      type: Number,
+      required: true
+    }
+  }],
+  shippingAddress: {
+    fullName: { type: String, required: true },
+    phone: { type: String, required: true },
+    addressLine1: { type: String, required: true },
+    addressLine2: { type: String },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    pincode: { type: String, required: true },
+    country: { type: String, default: 'India' }
+  },
   totalAmount: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
   paymentMethod: {
     type: String,
     required: true,
-    enum: ['NOWPAYMENTS', 'TON_NATIVE']
+    enum: ['TON', 'INR']
   },
   paymentStatus: {
     type: String,
     required: true,
-    enum: ['PENDING', 'PAID', 'FAILED'],
-    default: 'PENDING'
-  },
-  paymentId: {
-    type: String,
-    sparse: true
-  },
-  invoiceUrl: {
-    type: String
+    enum: ['pending', 'paid', 'failed'],
+    default: 'pending'
   },
   txHash: {
     type: String
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  paidAt: {
-    type: Date
+  rewardPointsEarned: {
+    type: Number,
+    default: 0
   }
-});
+}, { timestamps: true });
 
-orderSchema.index({ userId: 1, createdAt: -1 });
-orderSchema.index({ paymentId: 1 });
-orderSchema.index({ paymentStatus: 1 });
-
-orderSchema.pre('save', function(next) {
-  if (this.paymentStatus === 'PAID' && !this.paidAt) {
-    this.paidAt = new Date();
-  }
-  next();
-});
+orderSchema.index({ userWalletAddress: 1, createdAt: -1 });
 
 export default mongoose.model('Order', orderSchema);

@@ -1,39 +1,43 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
   walletAddress: {
     type: String,
-    required: true,
     unique: true,
     lowercase: true,
+    sparse: true,
     validate: {
       validator: function(v) {
-        return /^UQ[A-Za-z0-9_-]{46}$/.test(v) || /^EQ[A-Za-z0-9_-]{46}$/.test(v);
+        if (!v) return true; // Allow null/undefined
+        return /^uq[a-z0-9_-]{46}$/.test(v) || /^eq[a-z0-9_-]{46}$/.test(v);
       },
       message: 'Invalid TON wallet address format'
     }
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
+  tonId: {
+    type: String,
+    unique: true,
+    sparse: true
   },
-  lastLogin: {
-    type: Date,
-    default: Date.now
+  email: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  name: {
+    type: String
   },
   totalPoints: {
     type: Number,
     default: 0,
     min: 0
+  },
+  isActive: {
+    type: Boolean,
+    default: true
   }
-});
+}, { timestamps: true });
 
 userSchema.index({ walletAddress: 1 });
-userSchema.index({ createdAt: -1 });
-
-userSchema.pre('save', function(next) {
-  this.lastLogin = new Date();
-  next();
-});
 
 export default mongoose.model('User', userSchema);

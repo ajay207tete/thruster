@@ -1,6 +1,6 @@
-const express = require('express');
-const crypto = require('crypto');
-const Order = require('../models/Order');
+import express from 'express';
+import crypto from 'crypto';
+import Order from '../models/Order.js';
 import axios from 'axios';
 
 const router = express.Router();

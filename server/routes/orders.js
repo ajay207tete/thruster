@@ -1,167 +1,65 @@
-const express = require('express');
-const router = express.Router();
-const User = require('../models/User');
-const Product = require('../models/Product');
+import express from 'express';
+import Order from '../models/Order.js';
+import User from '../models/User.js';
+import Activity from '../models/Activity.js';
 
-// Create a new order
+const router = express.Router();
+
+// POST /api/orders - Create order
 router.post('/', async (req, res) => {
   try {
-    const { userId, items, totalAmount, paymentId, paymentCurrency, shippingDetails } = req.body;
-
-    // Validate user exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Validate products exist and have sufficient stock
-    for (const item of items) {
-      const product = await Product.findById(item.product);
-      if (!product) {
-        return res.status(404).json({ message: `Product ${item.product} not found` });
-      }
-      if (product.stock < item.quantity) {
-        return res.status(400).json({
-          message: `Insufficient stock for ${product.name}. Available: ${product.stock}`
-        });
-      }
-    }
-
-    // Create the order
-    const orderData = {
-      items,
-      totalAmount,
-      paymentId,
-      paymentCurrency,
-      shippingDetails,
-      status: 'pending',
+    const order = new Order({
+      ...req.body,
       paymentStatus: 'pending'
-    };
-
-    user.orders.push(orderData);
-    await user.save();
-
-    // Update product stock
-    for (const item of items) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { stock: -item.quantity }
-      });
-    }
-
-    res.status(201).json({
-      message: 'Order created successfully',
-      order: user.orders[user.orders.length - 1]
     });
+    const savedOrder = await order.save();
+    res.status(201).json(savedOrder);
   } catch (error) {
-    console.error('Error creating order:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(400).json({ message: error.message });
   }
 });
 
-// Get user's orders
-router.get('/user/:userId', async (req, res) => {
+// PATCH /api/orders/:id/pay - Mark paid + save txHash
+router.patch('/:id/pay', async (req, res) => {
   try {
-    const { userId } = req.params;
-    const user = await User.findById(userId).populate('orders.items.product');
+    const { txHash } = req.body;
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      {
+        paymentStatus: 'paid',
+        txHash
+      },
+      { new: true }
+    );
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({ orders: user.orders });
-  } catch (error) {
-    console.error('Error fetching orders:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Get order by ID
-router.get('/:orderId', async (req, res) => {
-  try {
-    const { orderId } = req.params;
-
-    // Find user with the order
-    const user = await User.findOne({ 'orders._id': orderId })
-      .populate('orders.items.product');
-
-    if (!user) {
+    if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    const order = user.orders.id(orderId);
-    res.json({ order });
-  } catch (error) {
-    console.error('Error fetching order:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
+    // Calculate reward points (10% of order value)
+    const rewardPoints = Math.floor(order.totalAmount * 0.1);
 
-// Update order status
-router.put('/:orderId/status', async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const { status, paymentStatus } = req.body;
+    // Update user points
+    await User.findOneAndUpdate(
+      { walletAddress: order.userWalletAddress },
+      { $inc: { totalPoints: rewardPoints } }
+    );
 
-    const user = await User.findOne({ 'orders._id': orderId });
-
-    if (!user) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    const order = user.orders.id(orderId);
-    if (status) order.status = status;
-    if (paymentStatus) order.paymentStatus = paymentStatus;
-
-    await user.save();
-
-    res.json({
-      message: 'Order updated successfully',
-      order
+    // Create purchase activity
+    await Activity.create({
+      userWalletAddress: order.userWalletAddress,
+      actionType: 'purchase',
+      points: rewardPoints,
+      referenceId: order._id
     });
+
+    // Update order with reward points
+    order.rewardPointsEarned = rewardPoints;
+    await order.save();
+
+    res.json(order);
   } catch (error) {
-    console.error('Error updating order:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Cancel order
-router.put('/:orderId/cancel', async (req, res) => {
-  try {
-    const { orderId } = req.params;
-
-    const user = await User.findOne({ 'orders._id': orderId });
-
-    if (!user) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    const order = user.orders.id(orderId);
-
-    // Only allow cancellation if order is still pending
-    if (order.status !== 'pending') {
-      return res.status(400).json({
-        message: 'Cannot cancel order that is already being processed'
-      });
-    }
-
-    // Restore product stock
-    for (const item of order.items) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { stock: item.quantity }
-      });
-    }
-
-    order.status = 'cancelled';
-    order.paymentStatus = 'refunded';
-    await user.save();
-
-    res.json({
-      message: 'Order cancelled successfully',
-      order
-    });
-  } catch (error) {
-    console.error('Error cancelling order:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(400).json({ message: error.message });
   }
 });
 

@@ -1,6 +1,6 @@
 /* eslint-disable no-undef */
 // Jest setup file for React Native testing
-import 'react-native-gesture-handler/jestSetup';
+// react-native-gesture-handler/jestSetup removed - package not installed
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -162,21 +162,19 @@ jest.mock('axios', () => ({
   delete: jest.fn(() => Promise.resolve({ data: {} })),
 }));
 
-// Mock @sanity/client
-jest.mock('@sanity/client', () => ({
-  createClient: jest.fn(() => ({
-    fetch: jest.fn(() => Promise.resolve([])),
-  })),
-}));
-
-// Mock @sanity/image-url
-jest.mock('@sanity/image-url', () => ({
-  createImageUrlBuilder: jest.fn(() => ({
-    image: jest.fn(() => ({
-      url: jest.fn(() => 'https://example.com/image.jpg'),
+// Conditionally mock @sanity/client only if it exists
+try {
+  require('@sanity/client');
+  jest.mock('@sanity/client', () => ({
+    createClient: jest.fn(() => ({
+      fetch: jest.fn(() => Promise.resolve([])),
     })),
-  })),
-}));
+  }));
+} catch (error) {
+  // @sanity/client not installed, skip mocking
+}
+
+// Sanity mocks removed - not used in client-side tests
 
 // Global mocks for web APIs
 global.fetch = jest.fn(() =>

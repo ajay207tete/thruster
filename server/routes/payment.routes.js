@@ -1,5 +1,4 @@
 import express from 'express';
-import tonService from '../services/ton.service.js';
 import Order from '../models/Order.js';
 
 const router = express.Router();
@@ -48,8 +47,12 @@ router.post('/ton/create', async (req, res) => {
       });
     }
 
-    // Create TON transaction payload
-    const transaction = await tonService.createPaymentPayload(orderId, amount, userWallet);
+    // TODO: Implement TON payment payload creation
+    const transaction = {
+      to: TON_RECEIVER_WALLET,
+      amount: amount,
+      message: `Payment for order ${orderId}`
+    };
 
     // Store payment attempt in order
     order.paymentAttempts = order.paymentAttempts || [];

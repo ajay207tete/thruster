@@ -4,8 +4,6 @@ const cors = require('cors');
 const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const Grid = require('gridfs-stream');
-const upload = require('./upload');
 require('dotenv').config();
 
 // Load production environment
@@ -126,17 +124,6 @@ const mongoOptions = {
   heartbeatFrequencyMS: 10000,
 };
 
-const conn = mongoose.createConnection(process.env.MONGODB_URI, mongoOptions);
-
-let gfs;
-conn.once('open', () => {
-  // Init stream
-  gfs = Grid(conn.db, mongoose.mongo);
-  gfs.collection('uploads');
-  console.log('GridFS initialized');
-});
-
-// Connect mongoose main connection once
 mongoose.connect(process.env.MONGODB_URI, mongoOptions)
   .then(() => console.log('MongoDB connected successfully'))
   .catch(err => {
@@ -182,30 +169,7 @@ app.use('/api/orders', require('./routes/orders'));
 app.use('/api/hotels', require('./routes/hotels'));
 app.use('/api/payment-callback', require('./routes/paymentCallback'));
 
-// Route to get image by filename
-app.get('/api/images/:filename', (req, res) => {
-  if (!gfs) {
-    return res.status(500).json({ err: 'GridFS not initialized' });
-  }
-  gfs.files.findOne({ filename: req.params.filename }, (err, file) => {
-    if (!file || file.length === 0) {
-      return res.status(404).json({
-        err: 'No file exists'
-      });
-    }
 
-    // Check if image
-    if (file.contentType === 'image/jpeg' || file.contentType === 'image/png' || file.contentType === 'image/webp') {
-      // Read output to browser
-      const readstream = gfs.createReadStream(file.filename);
-      readstream.pipe(res);
-    } else {
-      res.status(404).json({
-        err: 'Not an image'
-      });
-    }
-  });
-});
 
 // Basic route
 app.get('/', (req, res) => {
@@ -265,6 +229,4 @@ app.listen(PORT, () => {
   console.log(`📚 API Documentation: http://localhost:${PORT}`);
 });
 
-// Export gfs and upload for use in routes
-const getGfs = () => gfs;
-module.exports = { gfs: getGfs, upload };
+

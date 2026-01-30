@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { getShopProducts } from '@/services/sanityClient';
+import { apiService } from '@/services/api';
 import { useCart } from '@/contexts/CartContext';
 import { useTelegramMiniApp } from '@/hooks/useTelegramMiniApp';
 
@@ -100,7 +100,7 @@ export function TelegramMiniApp() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const data = await getShopProducts();
+        const data = await apiService.getProducts();
         setProducts(data);
       } catch (error) {
         console.error('Failed to fetch products:', error);

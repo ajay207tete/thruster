@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://thruster-api.netlify.app';
+import { apiService } from './api';
 
 export interface Reward {
   _id: string;
@@ -11,7 +9,7 @@ export interface Reward {
   timestamp: string;
 }
 
-export interface RewardsResponse {
+export interface RewardResponse {
   success: boolean;
   totalPoints: number;
   rewards: Reward[];
@@ -26,44 +24,28 @@ export interface ClaimRewardResponse {
   error?: string;
 }
 
-class RewardService {
-  /**
-   * Get rewards history for a wallet
-   */
-  async getRewards(walletAddress: string): Promise<RewardsResponse> {
+export class RewardService {
+  async getRewards(walletAddress: string): Promise<RewardResponse> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/.netlify/functions/rewards/${walletAddress}`);
+      const response = await apiService.get(`/rewards/${walletAddress}`);
       return response.data;
-    } catch (error: any) {
-      console.error('Error fetching rewards:', error);
-      return {
-        success: false,
-        totalPoints: 0,
-        rewards: [],
-        error: error.response?.data?.error || 'Failed to fetch rewards'
-      };
+    } catch (error) {
+      console.error('Get rewards error:', error);
+      throw error;
     }
   }
 
-  /**
-   * Claim a social reward
-   */
   async claimReward(walletAddress: string, actionType: string, platform: string): Promise<ClaimRewardResponse> {
     try {
-      const response = await axios.post(`${API_BASE_URL}/.netlify/functions/rewards`, {
+      const response = await apiService.post('/rewards', {
         walletAddress,
         actionType,
         platform
       });
       return response.data;
-    } catch (error: any) {
-      console.error('Error claiming reward:', error);
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Failed to claim reward'
-      };
+    } catch (error) {
+      console.error('Claim reward error:', error);
+      throw error;
     }
   }
 }
-
-export const rewardService = new RewardService();

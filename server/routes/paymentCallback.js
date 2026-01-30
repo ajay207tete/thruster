@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
+import User from '../models/User.js';
+import Product from '../models/Product.js';
+
 const router = express.Router();
-const User = require('../models/User');
-const Booking = require('../models/Booking');
-const amadeusService = require('../services/amadeusService');
 
 // IPN callback for NowPayments
 router.post('/', async (req, res) => {
@@ -49,55 +49,12 @@ router.post('/', async (req, res) => {
       order.paymentStatus = 'paid';
       order.status = 'confirmed';
 
-      // Check if this is a hotel booking order
-      if (order.items && order.items.length > 0 && order.items[0].product === 'hotel-booking') {
-        try {
-          // Find the booking details from the order
-          const bookingData = {
-            user: user._id,
-            hotelId: order.hotelId,
-            offerId: order.offerId,
-            hotelName: order.hotelName,
-            checkInDate: order.checkInDate,
-            checkOutDate: order.checkOutDate,
-            adults: order.adults,
-            guests: [{
-              name: order.shippingDetails.name,
-              email: order.shippingDetails.email,
-              phone: order.shippingDetails.phone
-            }],
-            totalPrice: order.totalAmount,
-            paymentId: payment_id
-          };
-
-          // Book the hotel with Amadeus
-          const amadeusBooking = await amadeusService.bookHotel(bookingData.offerId, bookingData.guests);
-
-          // Create booking record
-          const booking = new Booking({
-            ...bookingData,
-            bookingStatus: 'confirmed',
-            amadeusBookingId: amadeusBooking.id || amadeusBooking.bookingId
-          });
-
-          await booking.save();
-
-          // Add booking to user's bookings
-          user.bookings.push(booking._id);
-
-          console.log('Hotel booking confirmed:', booking._id);
-        } catch (bookingError) {
-          console.error('Error booking hotel:', bookingError);
-          // Don't fail the payment callback, but log the error
-          // Could implement retry logic or notification here
-        }
-      }
+      // Hotel booking functionality removed - amadeusService not available
     } else if (payment_status === 'failed' || payment_status === 'expired') {
       order.paymentStatus = 'failed';
       order.status = 'cancelled';
 
       // Restore product stock
-      const Product = require('../models/Product');
       for (const item of order.items) {
         await Product.findByIdAndUpdate(item.product, {
           $inc: { stock: item.quantity }

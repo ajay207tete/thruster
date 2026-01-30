@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { TonConnectUIProvider, useTonConnectUI } from '@tonconnect/ui-react';
-import WebApp from '@twa-dev/sdk';
+import { TonConnectUIProvider } from '@tonconnect/ui-react';
 import { Analytics } from '@vercel/analytics/react';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { CartProvider } from '@/contexts/CartContext';
-import { tonService } from '@/services/tonService-updated';
 import { TonConnectInitializer } from '@/components/TonConnectInitializer';
 
 export default function RootLayout() {
@@ -20,7 +18,7 @@ export default function RootLayout() {
 
   // Memoize the manifest URL to prevent unnecessary re-renders
   const manifestUrl = useMemo(() => {
-    return process.env.EXPO_PUBLIC_TON_MANIFEST_URL || "/tonconnect-manifest.json";
+    return process.env.EXPO_PUBLIC_TON_MANIFEST_URL || "https://thruster-three.netlify.app/tonconnect-manifest.json";
   }, []);
 
   if (!loaded) {
@@ -33,8 +31,11 @@ export default function RootLayout() {
       <TonConnectInitializer>
         <CartProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="cart" />
+              <Stack.Screen name="rewards" />
+              <Stack.Screen name="nft" />
               <Stack.Screen name="+not-found" />
             </Stack>
             <StatusBar style="auto" />

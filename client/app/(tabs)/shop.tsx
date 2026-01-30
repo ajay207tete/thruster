@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, Image, ScrollView, FlatList } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Image, ScrollView, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
@@ -7,13 +8,15 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { apiService } from '@/services/api';
 import { useCart } from '@/contexts/CartContext';
+import { tonService } from '@/services/tonService-updated';
+import Header from '@/components/Header';
 
 export interface Product {
-  _id: string;
-  name: string;
+  id: string;
+  title: string;
   description: string;
   price: number;
-  imageUrl: string | null;
+  image: string | null;
   sizes: ('S' | 'M' | 'L')[];
   colors: string[];
   category: string;
@@ -31,55 +34,105 @@ export default function ShopScreen() {
   const [selectedSize, setSelectedSize] = useState<{ [key: string]: string }>({});
   const [selectedColor, setSelectedColor] = useState<{ [key: string]: string }>({});
   const [selectedQuantity, setSelectedQuantity] = useState<{ [key: string]: number }>({});
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string>('');
+  const [walletLoading, setWalletLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        console.log('Fetching products from backend API...');
-        const data = await apiService.getProducts();
-        console.log('Fetched products:', data);
-        console.log('Number of products:', data.length);
-
-        // Ensure each product has imageUrl and description fields
-        const processedProducts = data.map((product: any) => ({
-          ...product,
-          imageUrl: product.imageUrl || null,
-          description: product.description || 'No description available'
-        }));
-
-        setProducts(processedProducts);
-      } catch (error) {
-        console.error('Failed to fetch backend products:', error);
-        setError('Failed to load products. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
+    checkWalletConnection();
   }, []);
 
+  const checkWalletConnection = async () => {
+    try {
+      const address = tonService.getWalletAddress();
+      if (!address) {
+        Alert.alert(
+          'Wallet Required',
+          'Please connect your wallet to access the shop',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => router.back() },
+            { text: 'Connect Wallet', onPress: () => router.push('/') }
+          ]
+        );
+        setWalletLoading(false);
+        return;
+      }
+      setWalletAddress(address);
+      console.log('Shop Page - Wallet Address:', address);
+    } catch (error) {
+      console.error('Error checking wallet:', error);
+      Alert.alert('Error', 'Failed to check wallet connection');
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (walletAddress) {
+      const fetchProducts = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          console.log('Fetching products from backend API...');
+          const data = await apiService.getProducts();
+          console.log('API response received:', data);
+          console.log('Products fetched from backend:', Array.isArray(data) ? data.length : 0);
+
+          // Defensive check for data structure - server returns direct array
+          if (!Array.isArray(data)) {
+            throw new Error('Invalid response format from API - expected array');
+          }
+
+          // Normalize product data from backend to match frontend interface
+          const processedProducts = data.map((product: any) => ({
+            id: product._id || product.id,
+            title: product.name || 'Unnamed Product',
+            description: product.description || 'No description available',
+            price: product.price || 0,
+            image: product.imageUrl || null,
+            sizes: Array.isArray(product.sizes) ? product.sizes : [],
+            colors: Array.isArray(product.colors) ? product.colors : [],
+            category: product.category || 'General',
+            stock: product.stock || 0
+          }));
+
+          console.log('Processed products array length:', processedProducts.length);
+          setProducts(processedProducts);
+          console.log('Products set in state - Products fetched → Products rendered');
+        } catch (error) {
+          console.error('Failed to fetch backend products:', error);
+          setError('Failed to load products. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchProducts();
+    }
+  }, [walletAddress]);
+
+  useEffect(() => {
+    console.log('React state after setProducts:', products);
+  }, [products]);
+
   const handleViewProduct = (product: Product) => {
-    router.push({
-      pathname: '/product-detail',
-      params: {
-        id: product._id,
-      },
-    });
+    setSelectedProduct(product);
+  };
+
+  const handleCloseProductDetail = () => {
+    setSelectedProduct(null);
   };
 
   const handleAddToCart = async (product: Product) => {
-    const size = selectedSize[product._id] || (product.sizes.length > 0 ? product.sizes[0] : '');
-    const color = selectedColor[product._id] || (product.colors.length > 0 ? product.colors[0] : '');
-    const quantity = selectedQuantity[product._id] || 1;
+    const size = selectedSize[product.id] || (product.sizes.length > 0 ? product.sizes[0] : '');
+    const color = selectedColor[product.id] || (product.colors.length > 0 ? product.colors[0] : '');
+    const quantity = selectedQuantity[product.id] || 1;
 
     if (quantity < 1) {
       alert('Please select a quantity of at least 1.');
       return;
     }
 
-    await addToCart(product._id, quantity, size, color);
+    await addToCart(product.id, quantity, size, color);
   };
 
   const handleSelectSize = (productId: string, size: string) => {
@@ -93,9 +146,9 @@ export default function ShopScreen() {
   const renderProduct = ({ item }: { item: Product }) => (
     <View style={styles.productCard}>
       <TouchableOpacity onPress={() => handleViewProduct(item)} style={styles.productImageContainer}>
-        {item.imageUrl ? (
+        {item.image ? (
           <Image
-            source={{ uri: item.imageUrl }}
+            source={{ uri: item.image }}
             style={styles.productImage}
             resizeMode="contain"
             onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
@@ -108,7 +161,7 @@ export default function ShopScreen() {
       </TouchableOpacity>
 
       <View style={styles.productInfo}>
-        <ThemedText style={styles.productName}>{item.name}</ThemedText>
+        <ThemedText style={styles.productName}>{item.title}</ThemedText>
         <ThemedText style={styles.productDescription}>{item.description}</ThemedText>
         <ThemedText style={styles.productPrice}>${item.price}</ThemedText>
 
@@ -121,13 +174,13 @@ export default function ShopScreen() {
                   key={size}
                   style={[
                     styles.optionButton,
-                    selectedSize[item._id] === size && styles.optionButtonSelected,
+                    selectedSize[item.id] === size && styles.optionButtonSelected,
                   ]}
-                  onPress={() => handleSelectSize(item._id, size)}
+                  onPress={() => handleSelectSize(item.id, size)}
                 >
                   <ThemedText style={[
                     styles.optionText,
-                    selectedSize[item._id] === size && styles.optionTextSelected
+                    selectedSize[item.id] === size && styles.optionTextSelected
                   ]}>
                     {size}
                   </ThemedText>
@@ -144,13 +197,13 @@ export default function ShopScreen() {
                   key={color}
                   style={[
                     styles.optionButton,
-                    selectedColor[item._id] === color && styles.optionButtonSelected,
+                    selectedColor[item.id] === color && styles.optionButtonSelected,
                   ]}
-                  onPress={() => handleSelectColor(item._id, color)}
+                  onPress={() => handleSelectColor(item.id, color)}
                 >
                   <ThemedText style={[
                     styles.optionText,
-                    selectedColor[item._id] === color && styles.optionTextSelected
+                    selectedColor[item.id] === color && styles.optionTextSelected
                   ]}>
                     {color}
                   </ThemedText>
@@ -166,17 +219,17 @@ export default function ShopScreen() {
                 style={styles.quantityButton}
                 onPress={() => setSelectedQuantity((prev) => ({
                   ...prev,
-                  [item._id]: Math.max(1, (prev[item._id] || 1) - 1),
+                  [item.id]: Math.max(1, (prev[item.id] || 1) - 1),
                 }))}
               >
                 <Ionicons name="remove" size={16} color="#00ff00" />
               </TouchableOpacity>
-              <ThemedText style={styles.quantityText}>{selectedQuantity[item._id] || 1}</ThemedText>
+              <ThemedText style={styles.quantityText}>{selectedQuantity[item.id] || 1}</ThemedText>
               <TouchableOpacity
                 style={styles.quantityButton}
                 onPress={() => setSelectedQuantity((prev) => ({
                   ...prev,
-                  [item._id]: (prev[item._id] || 1) + 1,
+                  [item.id]: (prev[item.id] || 1) + 1,
                 }))}
               >
                 <Ionicons name="add" size={16} color="#00ff00" />
@@ -193,30 +246,47 @@ export default function ShopScreen() {
     </View>
   );
 
+  if (walletLoading) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00ff00" />
+          <ThemedText style={styles.loadingText}>Checking wallet...</ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
+
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.leftSection}>
-          <TouchableOpacity onPress={() => router.push('/')} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#00ff00" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.centerSection}>
-        </View>
-        <View style={styles.rightSection}>
-          <TouchableOpacity onPress={() => router.push('/cart')} style={styles.cartButton}>
-            <Ionicons name="cart" size={30} color="#00ff00" />
-            {cartState.cart?.items && cartState.cart.items.length > 0 && (
-              <View style={styles.cartBadge}>
-                <ThemedText style={styles.cartBadgeText}>{cartState.cart.items.length}</ThemedText>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Header backgroundColor="#000000" showCartIcon={true} />
 
       <View style={styles.content}>
-        {loading ? (
+        {selectedProduct ? (
+          <ScrollView style={styles.productDetailContainer}>
+            <View style={styles.productDetailHeader}>
+              <TouchableOpacity onPress={handleCloseProductDetail} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#00ff00" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.productDetailContent}>
+              <Image
+                source={{ uri: selectedProduct.image || undefined }}
+                style={styles.productDetailImage}
+                resizeMode="contain"
+              />
+              <ThemedText style={styles.productDetailName}>{selectedProduct.title}</ThemedText>
+              <ThemedText style={styles.productDetailDescription}>{selectedProduct.description}</ThemedText>
+              <ThemedText style={styles.productDetailPrice}>${selectedProduct.price}</ThemedText>
+              <ThemedText style={styles.productDetailCategory}>Category: {selectedProduct.category}</ThemedText>
+              <ThemedText style={styles.productDetailStock}>Stock: {selectedProduct.stock}</ThemedText>
+              <TouchableOpacity style={styles.addToCartButton} onPress={() => handleAddToCart(selectedProduct)}>
+                <Ionicons name="cart" size={20} color="#000000" />
+                <ThemedText style={styles.addToCartText}>Add to Cart</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        ) : loading ? (
           <View style={styles.loadingState}>
             <Ionicons name="refresh" size={60} color="#00ff00" />
             <ThemedText style={styles.loadingText}>Loading products...</ThemedText>
@@ -225,14 +295,46 @@ export default function ShopScreen() {
           <View style={styles.errorState}>
             <Ionicons name="alert-circle" size={60} color="#ff0000" />
             <ThemedText style={styles.errorText}>{error}</ThemedText>
-            <TouchableOpacity style={styles.retryButton} onPress={() => window.location.reload()}>
+            <TouchableOpacity style={styles.retryButton} onPress={() => {
+              setError(null);
+              setLoading(true);
+              // Re-fetch products
+              const fetchProducts = async () => {
+                try {
+                  console.log('Retrying to fetch products from backend API...');
+                  const data = await apiService.getProducts();
+                  console.log('Fetched products:', data);
+                  console.log('Number of products:', data.products.length);
+
+                  const processedProducts = data.products.map((product: any) => ({
+                    id: product._id,
+                    title: product.name,
+                    description: product.description || 'No description available',
+                    price: product.price,
+                    image: product.imageUrl || null,
+                    sizes: product.sizes || [],
+                    colors: product.colors || [],
+                    category: product.category,
+                    stock: product.stock
+                  }));
+
+                  setProducts(processedProducts);
+                } catch (retryError) {
+                  console.error('Failed to retry fetching products:', retryError);
+                  setError('Failed to load products. Please try again.');
+                } finally {
+                  setLoading(false);
+                }
+              };
+              fetchProducts();
+            }}>
               <ThemedText style={styles.retryText}>Retry</ThemedText>
             </TouchableOpacity>
           </View>
         ) : products.length > 0 ? (
           <FlatList
             data={products}
-            keyExtractor={(item) => item._id}
+            keyExtractor={(item) => item.id}
             renderItem={renderProduct}
             numColumns={2}
             contentContainerStyle={styles.productList}
@@ -252,66 +354,12 @@ export default function ShopScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#000000',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#00ff00',
-  },
-  leftSection: {
+  loadingContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  centerSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-  },
-  rightSection: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  logo: {
-    width: 40,
-    height: 40,
-    marginRight: 12,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#00ff00',
-    fontFamily: 'SpaceMono',
-  },
-  backButton: {
-    padding: 8,
-  },
-  cartButton: {
-    position: 'relative',
-    padding: 8,
-  },
-  cartBadge: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#ff0000',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cartBadgeText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   content: {
     flex: 1,
@@ -506,6 +554,59 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'SpaceMono',
+  },
+  productDetailContainer: {
+    flex: 1,
+  },
+  productDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: 10,
+  },
+  closeButton: {
+    padding: 10,
+  },
+  productDetailContent: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  productDetailImage: {
+    width: 300,
+    height: 300,
+    marginBottom: 20,
+  },
+  productDetailName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#00ff00',
+    marginBottom: 10,
+    fontFamily: 'SpaceMono',
+  },
+  productDetailDescription: {
+    fontSize: 16,
+    color: '#cccccc',
+    marginBottom: 10,
+    textAlign: 'center',
+    fontFamily: 'SpaceMono',
+  },
+  productDetailPrice: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#00ff00',
+    marginBottom: 10,
+    fontFamily: 'SpaceMono',
+  },
+  productDetailCategory: {
+    fontSize: 16,
+    color: '#cccccc',
+    marginBottom: 5,
+    fontFamily: 'SpaceMono',
+  },
+  productDetailStock: {
+    fontSize: 16,
+    color: '#cccccc',
+    marginBottom: 20,
     fontFamily: 'SpaceMono',
   },
 });

@@ -1,17 +1,14 @@
 import express from 'express';
 import Product from '../models/Product.js';
-import { getShopProducts, getShopProductById } from '../services/sanityClient.js';
 
 const router = express.Router();
 
 // GET all products
 router.get('/', async (req, res) => {
   try {
-    console.log('Fetching products from Sanity...');
-    const products = await getShopProducts();
-    console.log('Products from Sanity:', products.length);
-
-    console.log('Final products with images:', products);
+    console.log('Fetching products from MongoDB...');
+    const products = await Product.find();
+    console.log('Products from MongoDB:', products.length);
     res.json(products);
   } catch (err) {
     console.error('Error fetching products:', err);
@@ -23,13 +20,11 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     console.log('Fetching product by ID:', req.params.id);
-    const product = await getShopProductById(req.params.id);
+    const product = await Product.findById(req.params.id);
     if (!product) {
-      console.log('Product not found in Sanity');
+      console.log('Product not found in MongoDB');
       return res.status(404).json({ message: 'Product not found' });
     }
-
-    console.log('Product with image:', product);
     res.json(product);
   } catch (err) {
     console.error('Error fetching product:', err);

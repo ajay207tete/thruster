@@ -31,17 +31,7 @@ export const validateEnvironment = (): EnvValidationResult => {
     errors.push('Environment variable EXPO_PUBLIC_TON_MANIFEST_URL contains placeholder value');
   }
 
-  if (!sanityProjectId || sanityProjectId.trim() === '') {
-    errors.push('Missing required environment variable: EXPO_PUBLIC_SANITY_PROJECT_ID');
-  } else if (sanityProjectId.includes('your_') || sanityProjectId.includes('YOUR_')) {
-    errors.push('Environment variable EXPO_PUBLIC_SANITY_PROJECT_ID contains placeholder value');
-  }
 
-  if (!sanityDataset || sanityDataset.trim() === '') {
-    errors.push('Missing required environment variable: EXPO_PUBLIC_SANITY_DATASET');
-  } else if (sanityDataset.includes('your_') || sanityDataset.includes('YOUR_')) {
-    errors.push('Environment variable EXPO_PUBLIC_SANITY_DATASET contains placeholder value');
-  }
 
   // Check optional environment variables
   const amadeusClientId = process.env.EXPO_PUBLIC_AMADEUS_CLIENT_ID;

@@ -195,7 +195,6 @@ class OrderService {
 
           // Trigger NFT minting for TON payments
           if (order.paymentMethod === 'TON_NATIVE') {
-            const nftService = require('./nft.service');
             await nftService.mintNFT(order._id, user.walletAddress);
           }
         }

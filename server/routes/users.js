@@ -1,87 +1,55 @@
-const express = require('express');
-const User = require('../models/User');
+import express from 'express';
+import User from '../models/User.js';
+import Activity from '../models/Activity.js';
 
 const router = express.Router();
 
-// GET all users
-router.get('/', async (req, res) => {
+// GET /api/users/:walletAddress - Get user by wallet address
+router.get('/:walletAddress', async (req, res) => {
   try {
-    const users = await User.find();
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// GET a specific user
-router.get('/:id', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const user = await User.findOne({ walletAddress: req.params.walletAddress });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
     res.json(user);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
-// CREATE a new user
+// POST /api/users - Create user
 router.post('/', async (req, res) => {
-  const user = new User({
-    name: req.body.name,
-    email: req.body.email,
-    shippingDetails: req.body.shippingDetails,
-  });
-
   try {
-    const newUser = await user.save();
-    res.status(201).json(newUser);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+    const user = new User(req.body);
+    const savedUser = await user.save();
+    res.status(201).json(savedUser);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 });
 
-// UPDATE a user
-router.put('/:id', async (req, res) => {
+// PATCH /api/users/:walletAddress/points - Update user points
+router.patch('/:walletAddress/points', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const { points, actionType } = req.body;
 
-    if (req.body.name) user.name = req.body.name;
-    if (req.body.email) user.email = req.body.email;
-    if (req.body.shippingDetails) user.shippingDetails = req.body.shippingDetails;
-    if (req.body.bookings) user.bookings = req.body.bookings;
+    // Update user points
+    const user = await User.findOneAndUpdate(
+      { walletAddress: req.params.walletAddress },
+      { $inc: { totalPoints: points } },
+      { new: true, upsert: true }
+    );
 
-    const updatedUser = await user.save();
-    res.json(updatedUser);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-});
+    // Create activity record
+    await Activity.create({
+      userWalletAddress: req.params.walletAddress,
+      actionType,
+      points
+    });
 
-// DELETE a user
-router.delete('/:id', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    await user.remove();
-    res.json({ message: 'User deleted' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// ADD a booking to user
-router.post('/:id/bookings', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    user.bookings.push(req.body);
-    const updatedUser = await user.save();
-    res.json(updatedUser);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.json(user);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 });
 

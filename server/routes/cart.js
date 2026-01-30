@@ -1,27 +1,39 @@
-const express = require('express');
+import express from 'express';
+import Cart from '../models/Cart.js';
+import Product from '../models/Product.js';
+import { authenticate } from '../middleware/auth.js';
+
 const router = express.Router();
-const Cart = require('../models/Cart');
-const Product = require('../models/Product');
-const auth = require('../middleware/auth');
 
 // Middleware to get cart (either user cart or guest cart)
 const getCart = async (req, res, next) => {
   try {
-    const { sessionId } = req.body;
-    const userId = req.user ? req.user.id : null;
+    const walletAddress = req.headers['x-wallet-address'];
+
+    if (!walletAddress) {
+      return res.status(400).json({ message: 'Wallet address required' });
+    }
+
+    // Find user by wallet address
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findOne({ walletAddress });
 
     let cart;
-    if (userId) {
+    if (user) {
       // Logged-in user
-      cart = await Cart.findOrCreateCart(userId, null, false);
-    } else if (sessionId) {
-      // Guest user
-      cart = await Cart.findOrCreateCart(null, sessionId, true);
+      cart = await Cart.findOrCreateCart(user._id, null, false);
     } else {
-      return res.status(400).json({ message: 'Either user authentication or sessionId required' });
+      // Guest user - create a temporary user for cart association
+      const tempUser = new User({
+        walletAddress,
+        totalPoints: 0
+      });
+      await tempUser.save();
+      cart = await Cart.findOrCreateCart(tempUser._id, null, true);
     }
 
     req.cart = cart;
+    req.user = user;
     next();
   } catch (error) {
     console.error('Error getting cart:', error);
@@ -163,7 +175,7 @@ router.delete('/clear', getCart, async (req, res) => {
 });
 
 // Merge guest cart with user cart (when user logs in)
-router.post('/merge', auth, async (req, res) => {
+router.post('/merge', authenticate, async (req, res) => {
   try {
     const { sessionId } = req.body;
     const userId = req.user.id;

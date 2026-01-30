@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiService } from '@/services/api';
+import { tonService } from '@/services/tonService-updated';
 
 // Interfaces
 interface CartItem {
@@ -178,54 +180,136 @@ export function CartProvider({ children }: CartProviderProps) {
     initializeCart();
   }, []);
 
+  // Listen for wallet connection changes
+  useEffect(() => {
+    const checkWalletConnection = () => {
+      const walletAddress = tonService.getWalletAddress();
+      if (walletAddress && (!state.cart || state.cart._id !== walletAddress)) {
+        console.log('🔄 Wallet connected, reinitializing cart...');
+        initializeCart();
+      } else if (!walletAddress && state.cart && state.cart._id !== 'guest') {
+        console.log('🔄 Wallet disconnected, switching to guest cart...');
+        initializeCart();
+      }
+    };
+
+    // Check immediately
+    checkWalletConnection();
+
+    // Set up interval to check periodically (since tonService might not have events)
+    const interval = setInterval(checkWalletConnection, 2000);
+    return () => clearInterval(interval);
+  }, [state.cart?._id]);
+
   const initializeCart = async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
+      console.log('🔄 Initializing cart...');
 
-      // Try to load from local storage first (legacy support)
+      // First, try to load from local storage to ensure persistence
       const localCartData = await AsyncStorage.getItem('localCart');
-      const cartItemsData = await AsyncStorage.getItem('cartItems');
-
-      let cart: Cart;
+      let localCart: Cart | null = null;
 
       if (localCartData) {
-        cart = JSON.parse(localCartData);
-      } else if (cartItemsData) {
-        // Convert legacy cartItems format to new Cart format
-        const cartItems = JSON.parse(cartItemsData);
-        cart = {
-          _id: 'local',
-          items: cartItems.map((item: any, index: number) => ({
-            _id: item._id || `item_${Date.now()}_${index}`,
-            product: {
-              _id: item._id || item.product?._id,
-              name: item.name || item.product?.name || `Product ${item._id}`,
-              image: item.image || item.product?.image
-            },
-            price: item.price,
-            quantity: item.quantity || 1,
-            size: item.size,
-            color: item.color
-          })),
-          totalItems: cartItems.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0),
-          totalPrice: cartItems.reduce((sum: number, item: any) => sum + (item.price * (item.quantity || 1)), 0),
-          lastUpdated: new Date().toISOString()
-        };
+        try {
+          localCart = JSON.parse(localCartData);
+          console.log('📱 Loaded cart from local storage:', localCart.items.length, 'items');
+        } catch (parseError) {
+          console.error('❌ Error parsing local cart data:', parseError);
+          await AsyncStorage.removeItem('localCart'); // Clear corrupted data
+        }
+      }
+
+      // Get wallet address from wallet service
+      const walletAddress = tonService.getWalletAddress();
+      console.log('👛 Wallet address:', walletAddress ? 'connected' : 'not connected');
+
+      if (walletAddress) {
+        try {
+          // Try to load cart from server
+          const response = await apiService.getCart(walletAddress);
+          console.log('🌐 Server cart response:', response);
+
+          if (response.success && response.cart) {
+            const cartData = response.cart;
+            const serverCart: Cart = {
+              _id: cartData._id || walletAddress,
+              items: cartData.items.map((item: any) => ({
+                _id: item._id,
+                product: {
+                  _id: item.productId._id,
+                  name: item.productId.name || item.productId.title,
+                  image: item.productId.image
+                },
+                price: item.productId.price,
+                quantity: item.quantity,
+                size: item.size,
+                color: item.color
+              })),
+              totalItems: cartData.totalItems || 0,
+              totalPrice: cartData.totalPrice || 0,
+              lastUpdated: new Date().toISOString()
+            };
+
+            // Use server cart as primary, but preserve local cart if server is empty
+            const finalCart = serverCart.items.length > 0 ? serverCart :
+              (localCart && localCart.items && localCart.items.length > 0 ? localCart : serverCart);
+
+            console.log('✅ Using cart with', finalCart.items.length, 'items');
+            dispatch({ type: 'SET_CART', payload: finalCart });
+
+            // Sync local storage with final cart
+            await AsyncStorage.setItem('localCart', JSON.stringify(finalCart));
+          } else {
+            // Server cart failed, use local cart or create empty
+            const finalCart = (localCart && localCart.items) ? localCart : {
+              _id: walletAddress,
+              items: [],
+              totalItems: 0,
+              totalPrice: 0,
+              lastUpdated: new Date().toISOString()
+            };
+            console.log('⚠️ Server cart failed, using local/empty cart');
+            dispatch({ type: 'SET_CART', payload: finalCart });
+          }
+        } catch (serverError) {
+          console.error('❌ Error loading server cart:', serverError);
+          // Use local cart or create empty
+          const finalCart = (localCart && localCart.items) ? localCart : {
+            _id: walletAddress,
+            items: [],
+            totalItems: 0,
+            totalPrice: 0,
+            lastUpdated: new Date().toISOString()
+          };
+          console.log('⚠️ Server error, using local/empty cart');
+          dispatch({ type: 'SET_CART', payload: finalCart });
+        }
       } else {
-        // Create empty cart
-        cart = {
-          _id: 'local',
+        // No wallet connected - use local cart or create empty
+        const finalCart = localCart || {
+          _id: 'guest',
           items: [],
           totalItems: 0,
           totalPrice: 0,
           lastUpdated: new Date().toISOString()
         };
+        console.log('👤 No wallet, using local/empty cart');
+        dispatch({ type: 'SET_CART', payload: finalCart });
       }
-
-      dispatch({ type: 'SET_CART', payload: cart });
     } catch (error) {
-      console.error('Error loading cart:', error);
+      console.error('❌ Critical error initializing cart:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load cart' });
+
+      // Create emergency empty cart
+      const emergencyCart: Cart = {
+        _id: 'emergency',
+        items: [],
+        totalItems: 0,
+        totalPrice: 0,
+        lastUpdated: new Date().toISOString()
+      };
+      dispatch({ type: 'SET_CART', payload: emergencyCart });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
       dispatch({ type: 'SET_INITIALIZED', payload: true });
@@ -237,15 +321,17 @@ export function CartProvider({ children }: CartProviderProps) {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
 
-      // For now, just add to local state
-      // TODO: Implement proper server-side cart management
+      // Fetch real product data from server
+      const productData = await apiService.getProductById(productId);
+
       const newItem: CartItem = {
         _id: `item_${Date.now()}`,
         product: {
           _id: productId,
-          name: `Product ${productId}`, // TODO: Get from server
+          name: productData.name,
+          image: productData.imageUrl
         },
-        price: 10, // TODO: Get from server
+        price: productData.price,
         quantity,
         size,
         color

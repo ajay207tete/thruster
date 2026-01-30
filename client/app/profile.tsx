@@ -54,16 +54,16 @@ export default function ProfileScreen() {
         onBackPress={() => router.back()}
       />
       <ScrollView contentContainerStyle={styles.content}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#00ff00" />
+          <ThemedText style={styles.backButtonText}>Back</ThemedText>
+        </TouchableOpacity>
         <ThemedText style={styles.subtitle}>Manage your profile information.</ThemedText>
         {user ? (
           <>
-            <ThemedText style={styles.profileText}>Name: {user.name}</ThemedText>
-            <ThemedText style={styles.profileText}>Email: {user.email}</ThemedText>
-            <ThemedText style={styles.profileText}>Shipping Address:</ThemedText>
-            <ThemedText style={styles.profileText}>
-              {user.shippingDetails.address}, {user.shippingDetails.city},{' '}
-              {user.shippingDetails.postalCode}, {user.shippingDetails.country}
-            </ThemedText>
+            <ThemedText style={styles.profileText}>Wallet Address: {user.walletAddress}</ThemedText>
+            <ThemedText style={styles.profileText}>Total Points: {user.totalPoints}</ThemedText>
+            <ThemedText style={styles.profileText}>Active: {user.isActive ? 'Yes' : 'No'}</ThemedText>
           </>
         ) : (
           <ThemedText style={styles.placeholder}>No profile data available.</ThemedText>
@@ -89,7 +89,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 8,
+    marginBottom: 20,
+  },
+  backButtonText: {
+    color: '#00ff00',
+    fontSize: 16,
+    fontFamily: 'SpaceMono',
+    marginLeft: 8,
   },
   headerSpacer: {
     width: 32,

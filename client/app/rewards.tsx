@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Share,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -16,7 +18,8 @@ import { router } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { tonService } from '@/services/tonService-updated';
-import { rewardService } from '@/services/rewardService';
+import { RewardService } from '@/services/rewardService';
+import Header from '@/components/Header';
 
 interface Reward {
   _id: string;
@@ -28,6 +31,7 @@ interface Reward {
 }
 
 export default function RewardsScreen() {
+  const rewardService = new RewardService();
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [totalPoints, setTotalPoints] = useState<number>(0);
   const [rewards, setRewards] = useState<Reward[]>([]);
@@ -36,8 +40,33 @@ export default function RewardsScreen() {
   const [pointsAnimation] = useState(new Animated.Value(1));
 
   useEffect(() => {
-    loadRewardsData();
+    checkWalletConnection();
   }, []);
+
+  const checkWalletConnection = async () => {
+    try {
+      const address = tonService.getWalletAddress();
+      if (!address) {
+        Alert.alert(
+          'Wallet Required',
+          'Please connect your wallet to view rewards',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => router.back() },
+            { text: 'Connect Wallet', onPress: () => router.push('/') }
+          ]
+        );
+        setLoading(false);
+        return;
+      }
+      setWalletAddress(address);
+      console.log('Rewards Page - Wallet Address:', address);
+      await loadRewardsData();
+    } catch (error) {
+      console.error('Error checking wallet:', error);
+      Alert.alert('Error', 'Failed to check wallet connection');
+      setLoading(false);
+    }
+  };
 
   const loadRewardsData = async () => {
     try {
@@ -55,7 +84,7 @@ export default function RewardsScreen() {
         setTotalPoints(response.totalPoints);
         setRewards(response.rewards);
       } else {
-        Alert.alert('Error', response.error || 'Failed to load rewards');
+        Alert.alert('Error', 'Failed to load rewards data');
       }
     } catch (error) {
       console.error('Error loading rewards:', error);
@@ -80,49 +109,16 @@ export default function RewardsScreen() {
     ]).start();
   };
 
-  const handleSocialAction = async (actionType: string, platform: string, url: string) => {
+  const handleClaimReward = async (rewardId: string) => {
+    setClaiming(rewardId);
     try {
-      // Open external link
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert('Error', 'Cannot open link');
-        return;
-      }
-
-      // Ask user to confirm they completed the action
-      Alert.alert(
-        'Action Completed?',
-        `Did you successfully ${actionType.toLowerCase().replace('_', ' ')} on ${platform}?`,
-        [
-          { text: 'Not yet', style: 'cancel' },
-          {
-            text: 'Yes, claim points',
-            onPress: () => claimReward(actionType, platform),
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('Error opening link:', error);
-      Alert.alert('Error', 'Failed to open link');
-    }
-  };
-
-  const claimReward = async (actionType: string, platform: string) => {
-    if (!walletAddress) return;
-
-    setClaiming(`${actionType}-${platform}`);
-    try {
-      const response = await rewardService.claimReward(walletAddress, actionType, platform);
-
+      const response = await rewardService.claimReward(walletAddress, rewardId);
       if (response.success) {
-        setTotalPoints(response.totalPoints);
         animatePoints();
-        Alert.alert('Success', `${response.pointsAdded} Points Added 🎉`);
-        await loadRewardsData(); // Refresh data
+        await loadRewardsData();
+        Alert.alert('Success', 'Reward claimed successfully!');
       } else {
-        Alert.alert('Error', response.error || 'Failed to claim reward');
+        Alert.alert('Error', response.message || 'Failed to claim reward');
       }
     } catch (error) {
       console.error('Error claiming reward:', error);
@@ -132,33 +128,40 @@ export default function RewardsScreen() {
     }
   };
 
+  const handleShare = async () => {
+    const message = `🎉 Earn crypto rewards on Thruster! Shop with TON and get points for NFTs, exclusive drops, and more. Join now: https://t.me/thruster_bot`;
+
+    try {
+      if (Platform.OS === 'web') {
+        if (navigator.share) {
+          await navigator.share({
+            title: 'Thruster Rewards',
+            text: message,
+            url: 'https://t.me/thruster_bot',
+          });
+        } else {
+          await navigator.clipboard.writeText(message);
+          Alert.alert('Copied!', 'Share link copied to clipboard');
+        }
+      } else {
+        await Share.share({
+          message,
+          url: 'https://t.me/thruster_bot',
+        });
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      Alert.alert('Error', 'Failed to share');
+    }
+  };
+
+  const formatDate = (timestamp: string) => {
+    return new Date(timestamp).toLocaleDateString();
+  };
+
   const formatWalletAddress = (address: string): string => {
     if (address.length <= 10) return address;
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const getActivityTypeLabel = (actionType: string): string => {
-    const labels: { [key: string]: string } = {
-      PURCHASE: 'Purchase',
-      FOLLOW_X: 'Follow',
-      FOLLOW_INSTAGRAM: 'Follow',
-      SHARE_APP: 'Share',
-    };
-    return labels[actionType] || actionType;
-  };
-
-  const getPlatformLabel = (platform: string): string => {
-    const labels: { [key: string]: string } = {
-      STORE_PURCHASE: 'Store Purchase',
-      X: 'X (Twitter)',
-      INSTAGRAM: 'Instagram',
-      APP_SHARE: 'App Share',
-    };
-    return labels[platform] || platform;
   };
 
   if (loading) {
@@ -173,20 +176,9 @@ export default function RewardsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#00ff00" />
-        </TouchableOpacity>
-        <ThemedText style={styles.title}>My Rewards</ThemedText>
-        <View style={styles.headerSpacer} />
-      </View>
+    <ThemedView style={styles.container}>
+      <Header backgroundColor="#000000" showCartIcon={false} />
 
-      <ThemedText style={styles.subtitle}>
-        Earn points by shopping and completing social tasks
-      </ThemedText>
-
-      {/* Wallet and Points Display */}
       <View style={styles.walletSection}>
         <ThemedText style={styles.walletLabel}>Wallet:</ThemedText>
         <ThemedText style={styles.walletAddress}>
@@ -194,151 +186,183 @@ export default function RewardsScreen() {
         </ThemedText>
       </View>
 
-      <Animated.View style={[styles.pointsCard, { transform: [{ scale: pointsAnimation }] }]}>
-        <ThemedText style={styles.pointsLabel}>Total Points</ThemedText>
-        <ThemedText style={styles.pointsValue}>{totalPoints.toLocaleString()}</ThemedText>
-      </Animated.View>
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+        <ThemedText style={styles.subtitle}>
+          Earn points by shopping and completing social tasks
+        </ThemedText>
 
-      {/* Points Summary Cards */}
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryCard}>
-          <Ionicons name="cart" size={24} color="#00ff00" />
-          <View style={styles.summaryText}>
-            <ThemedText style={styles.summaryTitle}>Purchase Rewards</ThemedText>
-            <ThemedText style={styles.summaryDesc}>
-              Earn points every time you buy products or services
-            </ThemedText>
-            <ThemedText style={styles.summaryExample}>1 TON spent = 10 points</ThemedText>
-          </View>
+        {/* Points Display */}
+        <View style={styles.pointsContainer}>
+          <Animated.View style={[styles.pointsCard, { transform: [{ scale: pointsAnimation }] }]}>
+            <ThemedText style={styles.pointsLabel}>Total Points</ThemedText>
+            <ThemedText style={styles.pointsValue}>{totalPoints}</ThemedText>
+          </Animated.View>
         </View>
 
-        <View style={styles.summaryCard}>
-          <Ionicons name="share-social" size={24} color="#00ff00" />
-          <View style={styles.summaryText}>
-            <ThemedText style={styles.summaryTitle}>Social Rewards</ThemedText>
-            <ThemedText style={styles.summaryDesc}>
-              Earn points by following and sharing
-            </ThemedText>
-          </View>
+        {/* Rewards History */}
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Rewards History</ThemedText>
+          {rewards.length > 0 ? (
+            <View style={styles.tableContainer}>
+              <View style={styles.tableHeader}>
+                <ThemedText style={styles.tableHeaderText}>Date</ThemedText>
+                <ThemedText style={styles.tableHeaderText}>Activity</ThemedText>
+                <ThemedText style={styles.tableHeaderText}>Platform</ThemedText>
+                <ThemedText style={styles.tableHeaderText}>Points</ThemedText>
+                <ThemedText style={styles.tableHeaderText}>Status</ThemedText>
+              </View>
+              {rewards.map((reward) => (
+                <View key={reward._id} style={styles.tableRow}>
+                  <ThemedText style={styles.tableCell}>{formatDate(reward.timestamp)}</ThemedText>
+                  <ThemedText style={styles.tableCell}>{reward.actionType}</ThemedText>
+                  <ThemedText style={styles.tableCell}>{reward.platform}</ThemedText>
+                  <ThemedText style={styles.tableCell}>+{reward.points}</ThemedText>
+                  <View style={styles.statusContainer}>
+                    {reward.status === 'completed' ? (
+                      <Ionicons name="checkmark-circle" size={16} color="#00ff00" />
+                    ) : (
+                      <ThemedText style={styles.pendingText}>Pending</ThemedText>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="trophy" size={60} color="#666666" />
+              <ThemedText style={styles.emptyText}>No rewards yet. Start earning points!</ThemedText>
+            </View>
+          )}
         </View>
-      </View>
 
-      {/* Points History Table */}
-      <View style={styles.tableContainer}>
-        <ThemedText style={styles.tableTitle}>Points History</ThemedText>
-        <View style={styles.tableHeader}>
-          <ThemedText style={[styles.tableHeaderText, { flex: 1 }]}>Date</ThemedText>
-          <ThemedText style={[styles.tableHeaderText, { flex: 1.5 }]}>Activity</ThemedText>
-          <ThemedText style={[styles.tableHeaderText, { flex: 1 }]}>Platform</ThemedText>
-          <ThemedText style={[styles.tableHeaderText, { flex: 0.8 }]}>Points</ThemedText>
-          <ThemedText style={[styles.tableHeaderText, { flex: 0.8 }]}>Status</ThemedText>
+        {/* Tasks Container */}
+        <View style={styles.tasksContainer}>
+          <ThemedText style={styles.tasksTitle}>Complete Tasks to Earn Points</ThemedText>
+
+          <TouchableOpacity style={styles.taskCard} onPress={() => Linking.openURL('https://x.com/thruster_fi')}>
+            <View style={styles.taskLeft}>
+              <Ionicons name="logo-twitter" size={24} color="#00ffff" />
+              <View style={styles.taskText}>
+                <ThemedText style={styles.taskTitle}>Follow us on X (Twitter)</ThemedText>
+                <ThemedText style={styles.taskReward}>+100 Points</ThemedText>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.claimButton}
+              onPress={() => handleClaimReward('follow_x')}
+              disabled={claiming === 'follow_x'}
+            >
+              {claiming === 'follow_x' ? (
+                <ActivityIndicator size="small" color="#000000" />
+              ) : (
+                <ThemedText style={styles.claimButtonText}>Claim</ThemedText>
+              )}
+            </TouchableOpacity>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.taskCard} onPress={handleShare}>
+            <View style={styles.taskLeft}>
+              <Ionicons name="share-social" size={24} color="#ff0080" />
+              <View style={styles.taskText}>
+                <ThemedText style={styles.taskTitle}>Share Thruster with friends</ThemedText>
+                <ThemedText style={styles.taskReward}>+50 Points</ThemedText>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.claimButton}
+              onPress={() => handleClaimReward('share_app')}
+              disabled={claiming === 'share_app'}
+            >
+              {claiming === 'share_app' ? (
+                <ActivityIndicator size="small" color="#000000" />
+              ) : (
+                <ThemedText style={styles.claimButtonText}>Claim</ThemedText>
+              )}
+            </TouchableOpacity>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.taskCard} onPress={() => Linking.openURL('https://instagram.com/thruster_fi')}>
+            <View style={styles.taskLeft}>
+              <Ionicons name="logo-instagram" size={24} color="#ff69b4" />
+              <View style={styles.taskText}>
+                <ThemedText style={styles.taskTitle}>Follow us on Instagram</ThemedText>
+                <ThemedText style={styles.taskReward}>+75 Points</ThemedText>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.claimButton}
+              onPress={() => handleClaimReward('follow_instagram')}
+              disabled={claiming === 'follow_instagram'}
+            >
+              {claiming === 'follow_instagram' ? (
+                <ActivityIndicator size="small" color="#000000" />
+              ) : (
+                <ThemedText style={styles.claimButtonText}>Claim</ThemedText>
+              )}
+            </TouchableOpacity>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.taskCard} onPress={() => Linking.openURL('https://t.me/thruster_channel')}>
+            <View style={styles.taskLeft}>
+              <Ionicons name="paper-plane" size={24} color="#0088cc" />
+              <View style={styles.taskText}>
+                <ThemedText style={styles.taskTitle}>Join our Telegram channel</ThemedText>
+                <ThemedText style={styles.taskReward}>+75 Points</ThemedText>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.claimButton}
+              onPress={() => handleClaimReward('join_telegram')}
+              disabled={claiming === 'join_telegram'}
+            >
+              {claiming === 'join_telegram' ? (
+                <ActivityIndicator size="small" color="#000000" />
+              ) : (
+                <ThemedText style={styles.claimButtonText}>Claim</ThemedText>
+              )}
+            </TouchableOpacity>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.taskCard} onPress={() => Linking.openURL('https://youtube.com/@thruster_fi')}>
+            <View style={styles.taskLeft}>
+              <Ionicons name="logo-youtube" size={24} color="#ff0000" />
+              <View style={styles.taskText}>
+                <ThemedText style={styles.taskTitle}>Subscribe to our YouTube</ThemedText>
+                <ThemedText style={styles.taskReward}>+75 Points</ThemedText>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.claimButton}
+              onPress={() => handleClaimReward('subscribe_youtube')}
+              disabled={claiming === 'subscribe_youtube'}
+            >
+              {claiming === 'subscribe_youtube' ? (
+                <ActivityIndicator size="small" color="#000000" />
+              ) : (
+                <ThemedText style={styles.claimButtonText}>Claim</ThemedText>
+              )}
+            </TouchableOpacity>
+          </TouchableOpacity>
         </View>
-
-        {rewards.length === 0 ? (
-          <View style={styles.emptyState}>
-            <ThemedText style={styles.emptyText}>No rewards yet. Start earning points!</ThemedText>
-          </View>
-        ) : (
-          rewards.map((reward) => (
-            <View key={reward._id} style={styles.tableRow}>
-              <ThemedText style={[styles.tableCell, { flex: 1 }]}>
-                {formatDate(reward.timestamp)}
-              </ThemedText>
-              <ThemedText style={[styles.tableCell, { flex: 1.5 }]}>
-                {getActivityTypeLabel(reward.actionType)}
-              </ThemedText>
-              <ThemedText style={[styles.tableCell, { flex: 1 }]}>
-                {getPlatformLabel(reward.platform)}
-              </ThemedText>
-              <ThemedText style={[styles.tableCell, { flex: 0.8, color: '#00ff00' }]}>
-                +{reward.points}
-              </ThemedText>
-              <ThemedText style={[styles.tableCell, { flex: 0.8 }]}>
-                {reward.status === 'COMPLETED' ? '✓' : 'Pending'}
-              </ThemedText>
-            </View>
-          ))
-        )}
-      </View>
-
-      {/* Social Tasks Section */}
-      <View style={styles.tasksContainer}>
-        <ThemedText style={styles.tasksTitle}>Earn More Points</ThemedText>
-
-        <TouchableOpacity
-          style={styles.taskCard}
-          onPress={() => handleSocialAction('FOLLOW_X', 'X', 'https://twitter.com/thruster_fi')}
-          disabled={claiming === 'FOLLOW_X-X'}
-        >
-          <View style={styles.taskLeft}>
-            <Ionicons name="logo-twitter" size={24} color="#00ff00" />
-            <View style={styles.taskText}>
-              <ThemedText style={styles.taskTitle}>Follow on X</ThemedText>
-              <ThemedText style={styles.taskReward}>+100 Points</ThemedText>
-            </View>
-          </View>
-          {claiming === 'FOLLOW_X-X' ? (
-            <ActivityIndicator size="small" color="#00ff00" />
-          ) : (
-            <Ionicons name="chevron-forward" size={20} color="#00ff00" />
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.taskCard}
-          onPress={() => handleSocialAction('FOLLOW_INSTAGRAM', 'INSTAGRAM', 'https://www.instagram.com/thruster.co.in?igsh=cTF2MG05ZDczNHU=')}
-          disabled={claiming === 'FOLLOW_INSTAGRAM-INSTAGRAM'}
-        >
-          <View style={styles.taskLeft}>
-            <Ionicons name="logo-instagram" size={24} color="#00ff00" />
-            <View style={styles.taskText}>
-              <ThemedText style={styles.taskTitle}>Follow on Instagram</ThemedText>
-              <ThemedText style={styles.taskReward}>+100 Points</ThemedText>
-            </View>
-          </View>
-          {claiming === 'FOLLOW_INSTAGRAM-INSTAGRAM' ? (
-            <ActivityIndicator size="small" color="#00ff00" />
-          ) : (
-            <Ionicons name="chevron-forward" size={20} color="#00ff00" />
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.taskCard}
-          onPress={() => handleSocialAction('SHARE_APP', 'APP_SHARE', 'https://t.me/Thruster_shop_bot')}
-          disabled={claiming === 'SHARE_APP-APP_SHARE'}
-        >
-          <View style={styles.taskLeft}>
-            <Ionicons name="share" size={24} color="#00ff00" />
-            <View style={styles.taskText}>
-              <ThemedText style={styles.taskTitle}>Share App Link</ThemedText>
-              <ThemedText style={styles.taskReward}>+100 Points per valid share</ThemedText>
-            </View>
-          </View>
-          {claiming === 'SHARE_APP-APP_SHARE' ? (
-            <ActivityIndicator size="small" color="#00ff00" />
-          ) : (
-            <Ionicons name="chevron-forward" size={20} color="#00ff00" />
-          )}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </ThemedView>
   );
 }
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const isMobile = width < 768;
 
 const styles = StyleSheet.create({
-  // Main Container with Cyberpunk Background
   container: {
     flex: 1,
     backgroundColor: '#000000',
-    position: 'relative',
-    overflow: 'hidden',
   },
-
-  // Cyberpunk Loading
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -355,55 +379,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,
   },
-
-  // Cyberpunk Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: isMobile ? 15 : 20,
-    paddingTop: isMobile ? 40 : 50,
-    backgroundColor: 'rgba(10, 10, 10, 0.9)',
-    borderBottomWidth: 2,
-    borderBottomColor: '#ff0080',
-    shadowColor: '#ff0080',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerSpacer: {
-    width: 32,
-  },
-  title: {
-    color: '#ffffff',
-    fontSize: isMobile ? 20 : 24,
-    fontWeight: '900',
-    fontFamily: 'monospace',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    textShadowColor: '#00ffff',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-  },
-  subtitle: {
-    color: '#ff0080',
-    fontSize: isMobile ? 14 : 16,
-    fontFamily: 'monospace',
-    paddingHorizontal: isMobile ? 20 : 30,
-    marginBottom: 20,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    textShadowColor: '#ff0080',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 15,
-  },
-
-  // Wallet Section with Cyberpunk Styling
   walletSection: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -439,106 +414,60 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-
-  // Cyberpunk Points Card
-  pointsCard: {
-    backgroundColor: 'rgba(10, 10, 10, 0.95)',
-    marginHorizontal: isMobile ? 20 : 30,
+  subtitle: {
+    fontSize: 16,
+    color: '#ffffff',
+    textAlign: 'center',
     marginBottom: 20,
-    padding: isMobile ? 20 : 25,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: '#00ffff',
-    alignItems: 'center',
-    shadowColor: '#00ffff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 20,
+    fontFamily: 'SpaceMono',
+    paddingHorizontal: isMobile ? 20 : 30,
+    marginTop: 20,
   },
-  pointsLabel: {
-    color: '#ff0080',
-    fontSize: isMobile ? 14 : 16,
-    fontFamily: 'monospace',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    marginBottom: 8,
-    textShadowColor: '#ff0080',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-  },
-  pointsValue: {
-    color: '#00ffff',
-    fontSize: isMobile ? 32 : 36,
-    fontWeight: '900',
-    fontFamily: 'monospace',
-    textTransform: 'uppercase',
-    letterSpacing: 3,
-    textShadowColor: '#00ffff',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 15,
-  },
-
-  // Summary Container
-  summaryContainer: {
+  pointsContainer: {
     paddingHorizontal: isMobile ? 20 : 30,
     marginBottom: 20,
   },
-  summaryCard: {
+  pointsCard: {
     backgroundColor: 'rgba(10, 10, 10, 0.95)',
-    flexDirection: 'row',
-    padding: isMobile ? 15 : 20,
     borderRadius: 15,
-    marginBottom: 15,
+    padding: isMobile ? 20 : 30,
+    alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#ff0080',
-    shadowColor: '#ff0080',
+    borderColor: '#00ffff',
+    shadowColor: '#00ffff',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
-    elevation: 12,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
   },
-  summaryText: {
-    flex: 1,
-    marginLeft: isMobile ? 12 : 15,
-  },
-  summaryTitle: {
-    color: '#ffffff',
-    fontSize: isMobile ? 14 : 16,
-    fontWeight: '900',
+  pointsLabel: {
+    color: '#00ffff',
+    fontSize: isMobile ? 16 : 18,
     fontFamily: 'monospace',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 6,
+    marginBottom: 10,
     textShadowColor: '#00ffff',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 8,
   },
-  summaryDesc: {
-    color: '#cccccc',
-    fontSize: isMobile ? 12 : 14,
+  pointsValue: {
+    color: '#ffffff',
+    fontSize: isMobile ? 48 : 64,
+    fontWeight: 'bold',
     fontFamily: 'monospace',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 6,
+    textShadowColor: '#00ffff',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 15,
   },
-  summaryExample: {
-    color: '#888',
-    fontSize: isMobile ? 10 : 12,
-    fontFamily: 'monospace',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-
-  // Table Container
-  tableContainer: {
+  section: {
     paddingHorizontal: isMobile ? 20 : 30,
     marginBottom: 20,
   },
-  tableTitle: {
+  sectionTitle: {
     color: '#ff0080',
-    fontSize: isMobile ? 16 : 18,
-    fontWeight: '900',
+    fontSize: isMobile ? 18 : 20,
+    fontWeight: 'bold',
     fontFamily: 'monospace',
     textTransform: 'uppercase',
     letterSpacing: 2,
@@ -547,32 +476,27 @@ const styles = StyleSheet.create({
     textShadowColor: '#ff0080',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 15,
+  },
+  tableContainer: {
+    backgroundColor: 'rgba(5, 5, 5, 0.9)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#333',
+    overflow: 'hidden',
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(10, 10, 10, 0.95)',
-    padding: isMobile ? 12 : 15,
-    borderRadius: 10,
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: '#00ffff',
-    shadowColor: '#00ffff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 15,
-    elevation: 15,
+    backgroundColor: '#333',
+    padding: isMobile ? 8 : 10,
   },
   tableHeaderText: {
-    color: '#00ffff',
+    color: '#ffffff',
     fontSize: isMobile ? 10 : 12,
-    fontWeight: '900',
     fontFamily: 'monospace',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     textAlign: 'center',
-    textShadowColor: '#00ffff',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
+    flex: 1,
   },
   tableRow: {
     flexDirection: 'row',
@@ -590,9 +514,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     textAlign: 'center',
+    flex: 1,
   },
-
-  // Empty State
+  statusContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingText: {
+    color: '#ffaa00',
+    fontSize: isMobile ? 10 : 12,
+    fontFamily: 'monospace',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   emptyState: {
     padding: 20,
     alignItems: 'center',
@@ -604,8 +539,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-
-  // Tasks Container
   tasksContainer: {
     paddingHorizontal: isMobile ? 20 : 30,
     paddingBottom: 40,
@@ -669,5 +602,20 @@ const styles = StyleSheet.create({
     textShadowColor: '#ff0080',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 8,
+  },
+  claimButton: {
+    backgroundColor: '#00ff00',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  claimButtonText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: 'monospace',
+    textTransform: 'uppercase',
   },
 });

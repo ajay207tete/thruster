@@ -45,18 +45,31 @@ export const handler: Handler = async (event) => {
         };
       }
 
-      const user = await User.findOne({ walletAddress: wallet.toLowerCase() });
+      // Find or create user
+      let user = await User.findOne({ walletAddress: wallet.toLowerCase() });
       if (!user) {
-        return {
-          statusCode: 404,
-          headers,
-          body: JSON.stringify({ success: false, error: 'User not found' }),
-        };
+        user = new User({
+          walletAddress: wallet.toLowerCase(),
+          totalPoints: 0,
+          isActive: true
+        });
+        await user.save();
       }
 
-      const rewards = await Reward.find({ userWallet: wallet.toLowerCase() })
-        .sort({ timestamp: -1 })
+      // Get rewards with new schema
+      const rewards = await Reward.find({ userId: wallet.toLowerCase() })
+        .sort({ completedAt: -1 })
         .lean();
+
+      // Transform to old format for frontend compatibility
+      const transformedRewards = rewards.map(reward => ({
+        _id: reward._id,
+        actionType: reward.rewardType,
+        platform: reward.actionId,
+        points: reward.points,
+        status: reward.verified ? 'COMPLETED' : 'PENDING',
+        timestamp: reward.completedAt.toISOString()
+      }));
 
       return {
         statusCode: 200,
@@ -64,7 +77,7 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({
           success: true,
           totalPoints: user.totalPoints,
-          rewards,
+          rewards: transformedRewards,
         }),
       };
     }
@@ -89,20 +102,22 @@ export const handler: Handler = async (event) => {
         };
       }
 
-      const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
+      // Find or create user
+      let user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
       if (!user) {
-        return {
-          statusCode: 404,
-          headers,
-          body: JSON.stringify({ success: false, error: 'User not found' }),
-        };
+        user = new User({
+          walletAddress: walletAddress.toLowerCase(),
+          totalPoints: 0,
+          isActive: true
+        });
+        await user.save();
       }
 
-      // Check if reward already claimed
+      // Check if reward already claimed using new schema
       const existingReward = await Reward.findOne({
-        userWallet: walletAddress.toLowerCase(),
-        actionType,
-        platform,
+        userId: walletAddress.toLowerCase(),
+        rewardType: actionType,
+        actionId: platform,
       });
 
       if (existingReward) {
@@ -129,31 +144,55 @@ export const handler: Handler = async (event) => {
         };
       }
 
-      // Create reward record
-      const reward = new Reward({
-        userWallet: walletAddress.toLowerCase(),
-        actionType,
-        platform,
-        points,
-        status: 'COMPLETED',
-      });
+      // Use MongoDB transaction for atomicity
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-      await reward.save();
+      try {
+        // Create reward record with new schema
+        const reward = new Reward({
+          userId: walletAddress.toLowerCase(),
+          rewardType: actionType,
+          actionId: platform,
+          points,
+          completedAt: new Date(),
+          verified: true,
+          metadata: {
+            platform,
+            claimedVia: 'social_action'
+          }
+        });
 
-      // Update user's total points
-      user.totalPoints += points;
-      await user.save();
+        await reward.save({ session });
 
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          message: `${points} points added!`,
-          pointsAdded: points,
-          totalPoints: user.totalPoints,
-        }),
-      };
+        // Update user's total points
+        await User.findByIdAndUpdate(
+          user._id,
+          { $inc: { totalPoints: points } },
+          { session, new: true }
+        );
+
+        await session.commitTransaction();
+
+        // Get updated user data
+        const updatedUser = await User.findById(user._id);
+
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            message: `${points} points added!`,
+            pointsAdded: points,
+            totalPoints: updatedUser?.totalPoints || user.totalPoints + points,
+          }),
+        };
+      } catch (error) {
+        await session.abortTransaction();
+        throw error;
+      } finally {
+        session.endSession();
+      }
     }
 
     return {

@@ -1,5 +1,5 @@
 
-import "stdlib.fc";
+#include "../stdlib.fc";
 
 global int lastOrderId;
 global cell productDetails;

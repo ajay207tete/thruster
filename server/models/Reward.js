@@ -1,49 +1,42 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const rewardSchema = new mongoose.Schema({
-  userWallet: {
+  userId: {
     type: String,
     required: true,
-    lowercase: true,
-    validate: {
-      validator: function(v) {
-        return /^UQ[A-Za-z0-9_-]{46}$/.test(v) || /^EQ[A-Za-z0-9_-]{46}$/.test(v);
-      },
-      message: 'Invalid TON wallet address format'
-    }
+    index: true
   },
-  actionType: {
+  rewardType: {
     type: String,
     required: true,
     enum: ['PURCHASE', 'FOLLOW_X', 'FOLLOW_INSTAGRAM', 'SHARE_APP']
   },
-  platform: {
+  actionId: {
     type: String,
     required: true,
-    enum: ['STORE_PURCHASE', 'X', 'INSTAGRAM', 'APP_SHARE']
+    index: true
   },
   points: {
     type: Number,
     required: true,
     min: 0
   },
-  status: {
-    type: String,
-    required: true,
-    enum: ['COMPLETED', 'PENDING'],
-    default: 'COMPLETED'
-  },
-  timestamp: {
+  completedAt: {
     type: Date,
     default: Date.now
   },
-  orderId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Order'
+  verified: {
+    type: Boolean,
+    default: true
+  },
+  metadata: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   }
-});
+}, { timestamps: true });
 
-rewardSchema.index({ userWallet: 1, actionType: 1 });
-rewardSchema.index({ userWallet: 1, timestamp: -1 });
+// Compound index to prevent duplicate rewards
+rewardSchema.index({ userId: 1, rewardType: 1, actionId: 1 }, { unique: true });
+rewardSchema.index({ userId: 1, completedAt: -1 });
 
 export default mongoose.model('Reward', rewardSchema);

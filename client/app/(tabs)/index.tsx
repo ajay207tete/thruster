@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, FlatList, Image, Dimensions, Text, Modal, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import TonConnectButton from '../../components/TonConnectButton';
+import TonConnectButtonComponent from '../../components/TonConnectButton';
 import MenuDropdown from '../../components/MenuDropdown';
 import { ThemedText } from '@/components/ThemedText';
 import { apiService } from '@/services/api';
@@ -22,15 +22,24 @@ interface Product {
 
 export default function Index() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        console.log('Fetching products from API...');
         const data = await apiService.getProducts();
+        console.log('Products fetched successfully:', data?.length || 0);
         setProducts(data.slice(0, 4)); // Show first 4 products as featured
       } catch (error) {
         console.error('Failed to fetch products:', error);
+        setError('Failed to load featured products. Please check your connection.');
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -71,10 +80,10 @@ export default function Index() {
         <View style={styles.gridLines} />
       </View>
 
-      <View style={styles.cyberHeader}>
+        <View style={styles.cyberHeader}>
         <MenuDropdown />
         <View style={styles.headerGlow}>
-          <TonConnectButton />
+          <TonConnectButtonComponent />
         </View>
       </View>
 
@@ -269,6 +278,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 15,
     elevation: 15,
+  },
+  headerButton: {
+    marginRight: 10,
   },
 
   // Scroll Content

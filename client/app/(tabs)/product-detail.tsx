@@ -6,7 +6,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import PageHeader from '@/components/PageHeader';
-import { getShopProductById } from '@/services/sanityClient';
+import { apiService } from '@/services/api';
 
 export interface Product {
   _id: string;
@@ -47,7 +47,7 @@ export default function ProductDetailScreen() {
 
       try {
         console.log('Fetching product with ID:', id);
-        const data = await getShopProductById(id);
+        const data = await apiService.getProductById(id);
         console.log('Fetched product data:', data);
         setProduct(data);
         if (data && data.sizes.length > 0) setSelectedSize(data.sizes[0]);

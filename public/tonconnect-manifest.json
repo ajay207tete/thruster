@@ -1,7 +1,4 @@
 {
-  "url": "http://localhost:8081",
-  "name": "Thruster DApp",
-  "iconUrl": "http://localhost:8081/assets/images/icon.png",
-  "termsOfUseUrl": "http://localhost:8081/terms",
-  "privacyPolicyUrl": "http://localhost:8081/privacy"
+  "url": "https://thruster.netlify.app",
+  "name": "Thruster DApp"
 }

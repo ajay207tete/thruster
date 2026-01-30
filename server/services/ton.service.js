@@ -244,4 +244,4 @@ class TonService {
   }
 }
 
-module.exports = new TonService();
+export default new TonService();

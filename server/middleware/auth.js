@@ -1,9 +1,9 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 // Generate JWT token
 const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET || 'your-super-secret-jwt-key', {
+  return jwt.sign({ userId }, process.env.JWT_SECRET, {
     expiresIn: '7d'
   });
 };
@@ -11,7 +11,7 @@ const generateToken = (userId) => {
 // Verify JWT token
 const verifyToken = (token) => {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key');
+    return jwt.verify(token, process.env.JWT_SECRET);
   } catch (error) {
     return null;
   }
@@ -109,7 +109,7 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = {
+export {
   generateToken,
   verifyToken,
   authenticate,
