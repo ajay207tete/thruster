@@ -18,26 +18,21 @@ import { router } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { tonService } from '@/services/tonService-updated';
-import { RewardService } from '@/services/rewardService';
+import { RewardService, Task, UserPoints } from '@/services/rewardService';
 import Header from '@/components/Header';
-
-interface Reward {
-  _id: string;
-  actionType: string;
-  platform: string;
-  points: number;
-  status: string;
-  timestamp: string;
-}
+import TaskCard from '@/components/TaskCard';
 
 export default function RewardsScreen() {
   const rewardService = new RewardService();
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [totalPoints, setTotalPoints] = useState<number>(0);
-  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [rewards, setRewards] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [pointsAnimation] = useState(new Animated.Value(1));
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [userPoints, setUserPoints] = useState<UserPoints | null>(null);
+  const [tasksLoading, setTasksLoading] = useState<boolean>(false);
 
   useEffect(() => {
     checkWalletConnection();
@@ -78,13 +73,21 @@ export default function RewardsScreen() {
       }
 
       setWalletAddress(address);
-      const response = await rewardService.getRewards(address);
 
-      if (response.success) {
-        setTotalPoints(response.totalPoints);
-        setRewards(response.rewards);
-      } else {
-        Alert.alert('Error', 'Failed to load rewards data');
+      // Load user points and tasks in parallel
+      const [userPointsResponse, tasksResponse] = await Promise.all([
+        rewardService.getUserPoints(address),
+        rewardService.getTasks()
+      ]);
+
+      setUserPoints(userPointsResponse);
+      setTotalPoints(userPointsResponse.points);
+      setTasks(tasksResponse);
+
+      // Load rewards history for backward compatibility
+      const rewardsResponse = await rewardService.getRewards(address);
+      if (rewardsResponse.success) {
+        setRewards(rewardsResponse.rewards);
       }
     } catch (error) {
       console.error('Error loading rewards:', error);
@@ -109,16 +112,17 @@ export default function RewardsScreen() {
     ]).start();
   };
 
-  const handleClaimReward = async (rewardId: string) => {
-    setClaiming(rewardId);
+  const handleClaimReward = async (taskId: string) => {
+    setClaiming(taskId);
     try {
-      const response = await rewardService.claimReward(walletAddress, rewardId);
+      const response = await rewardService.claimReward(walletAddress, taskId);
       if (response.success) {
         animatePoints();
-        await loadRewardsData();
-        Alert.alert('Success', 'Reward claimed successfully!');
+        setTotalPoints(prev => prev + response.pointsAdded);
+        setUserPoints(prev => prev ? { ...prev, points: prev.points + response.pointsAdded, completedTasks: [...prev.completedTasks, taskId] } : null);
+        Alert.alert('Success', response.message || 'Reward claimed successfully!');
       } else {
-        Alert.alert('Error', response.message || 'Failed to claim reward');
+        Alert.alert('Error', response.error || 'Failed to claim reward');
       }
     } catch (error) {
       console.error('Error claiming reward:', error);
@@ -199,6 +203,21 @@ export default function RewardsScreen() {
           </Animated.View>
         </View>
 
+        {/* Tasks Container */}
+        <View style={styles.tasksContainer}>
+          <ThemedText style={styles.tasksTitle}>Complete Tasks to Earn Points</ThemedText>
+          {tasks.map((task) => (
+            <TaskCard
+              key={task.taskId}
+              task={task}
+              isCompleted={userPoints?.completedTasks.includes(task.taskId) || false}
+              isClaiming={claiming === task.taskId}
+              onClaim={handleClaimReward}
+              onShare={task.taskId === 'share_app' ? handleShare : undefined}
+            />
+          ))}
+        </View>
+
         {/* Rewards History */}
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Rewards History</ThemedText>
@@ -218,7 +237,7 @@ export default function RewardsScreen() {
                   <ThemedText style={styles.tableCell}>{reward.platform}</ThemedText>
                   <ThemedText style={styles.tableCell}>+{reward.points}</ThemedText>
                   <View style={styles.statusContainer}>
-                    {reward.status === 'completed' ? (
+                    {reward.status === 'COMPLETED' ? (
                       <Ionicons name="checkmark-circle" size={16} color="#00ff00" />
                     ) : (
                       <ThemedText style={styles.pendingText}>Pending</ThemedText>
@@ -233,116 +252,6 @@ export default function RewardsScreen() {
               <ThemedText style={styles.emptyText}>No rewards yet. Start earning points!</ThemedText>
             </View>
           )}
-        </View>
-
-        {/* Tasks Container */}
-        <View style={styles.tasksContainer}>
-          <ThemedText style={styles.tasksTitle}>Complete Tasks to Earn Points</ThemedText>
-
-          <TouchableOpacity style={styles.taskCard} onPress={() => Linking.openURL('https://x.com/thruster_fi')}>
-            <View style={styles.taskLeft}>
-              <Ionicons name="logo-twitter" size={24} color="#00ffff" />
-              <View style={styles.taskText}>
-                <ThemedText style={styles.taskTitle}>Follow us on X (Twitter)</ThemedText>
-                <ThemedText style={styles.taskReward}>+100 Points</ThemedText>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.claimButton}
-              onPress={() => handleClaimReward('follow_x')}
-              disabled={claiming === 'follow_x'}
-            >
-              {claiming === 'follow_x' ? (
-                <ActivityIndicator size="small" color="#000000" />
-              ) : (
-                <ThemedText style={styles.claimButtonText}>Claim</ThemedText>
-              )}
-            </TouchableOpacity>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.taskCard} onPress={handleShare}>
-            <View style={styles.taskLeft}>
-              <Ionicons name="share-social" size={24} color="#ff0080" />
-              <View style={styles.taskText}>
-                <ThemedText style={styles.taskTitle}>Share Thruster with friends</ThemedText>
-                <ThemedText style={styles.taskReward}>+50 Points</ThemedText>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.claimButton}
-              onPress={() => handleClaimReward('share_app')}
-              disabled={claiming === 'share_app'}
-            >
-              {claiming === 'share_app' ? (
-                <ActivityIndicator size="small" color="#000000" />
-              ) : (
-                <ThemedText style={styles.claimButtonText}>Claim</ThemedText>
-              )}
-            </TouchableOpacity>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.taskCard} onPress={() => Linking.openURL('https://instagram.com/thruster_fi')}>
-            <View style={styles.taskLeft}>
-              <Ionicons name="logo-instagram" size={24} color="#ff69b4" />
-              <View style={styles.taskText}>
-                <ThemedText style={styles.taskTitle}>Follow us on Instagram</ThemedText>
-                <ThemedText style={styles.taskReward}>+75 Points</ThemedText>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.claimButton}
-              onPress={() => handleClaimReward('follow_instagram')}
-              disabled={claiming === 'follow_instagram'}
-            >
-              {claiming === 'follow_instagram' ? (
-                <ActivityIndicator size="small" color="#000000" />
-              ) : (
-                <ThemedText style={styles.claimButtonText}>Claim</ThemedText>
-              )}
-            </TouchableOpacity>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.taskCard} onPress={() => Linking.openURL('https://t.me/thruster_channel')}>
-            <View style={styles.taskLeft}>
-              <Ionicons name="paper-plane" size={24} color="#0088cc" />
-              <View style={styles.taskText}>
-                <ThemedText style={styles.taskTitle}>Join our Telegram channel</ThemedText>
-                <ThemedText style={styles.taskReward}>+75 Points</ThemedText>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.claimButton}
-              onPress={() => handleClaimReward('join_telegram')}
-              disabled={claiming === 'join_telegram'}
-            >
-              {claiming === 'join_telegram' ? (
-                <ActivityIndicator size="small" color="#000000" />
-              ) : (
-                <ThemedText style={styles.claimButtonText}>Claim</ThemedText>
-              )}
-            </TouchableOpacity>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.taskCard} onPress={() => Linking.openURL('https://youtube.com/@thruster_fi')}>
-            <View style={styles.taskLeft}>
-              <Ionicons name="logo-youtube" size={24} color="#ff0000" />
-              <View style={styles.taskText}>
-                <ThemedText style={styles.taskTitle}>Subscribe to our YouTube</ThemedText>
-                <ThemedText style={styles.taskReward}>+75 Points</ThemedText>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.claimButton}
-              onPress={() => handleClaimReward('subscribe_youtube')}
-              disabled={claiming === 'subscribe_youtube'}
-            >
-              {claiming === 'subscribe_youtube' ? (
-                <ActivityIndicator size="small" color="#000000" />
-              ) : (
-                <ThemedText style={styles.claimButtonText}>Claim</ThemedText>
-              )}
-            </TouchableOpacity>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </ThemedView>
@@ -555,67 +464,5 @@ const styles = StyleSheet.create({
     textShadowColor: '#ff0080',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 15,
-  },
-  taskCard: {
-    backgroundColor: 'rgba(10, 10, 10, 0.95)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: isMobile ? 15 : 20,
-    borderRadius: 15,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    shadowColor: '#00ffff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  taskLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  taskText: {
-    marginLeft: isMobile ? 12 : 15,
-    flex: 1,
-  },
-  taskTitle: {
-    color: '#ffffff',
-    fontSize: isMobile ? 14 : 16,
-    fontWeight: '900',
-    fontFamily: 'monospace',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 4,
-    textShadowColor: '#00ffff',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
-  },
-  taskReward: {
-    color: '#ff0080',
-    fontSize: isMobile ? 12 : 14,
-    fontFamily: 'monospace',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    textShadowColor: '#ff0080',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
-  },
-  claimButton: {
-    backgroundColor: '#00ff00',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  claimButtonText: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: 'bold',
-    fontFamily: 'monospace',
-    textTransform: 'uppercase',
   },
 });

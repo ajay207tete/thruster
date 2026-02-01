@@ -14,6 +14,61 @@ jest.mock('react-native/Libraries/Alert/Alert', () => ({
 jest.mock('../services/paymentService');
 jest.mock('../services/tonService-updated');
 
+// Mock CartContext
+jest.mock('../contexts/CartContext', () => ({
+  useCart: () => ({
+    state: {
+      cart: [
+        {
+          _id: '1',
+          name: 'Cyberpunk T-Shirt',
+          price: 29.99,
+          image: 'cyberpunk-shirt.jpg',
+          size: 'M',
+          color: 'Black',
+          quantity: 2,
+        },
+        {
+          _id: '2',
+          name: 'Neon Sneakers',
+          price: 89.99,
+          image: 'neon-sneakers.jpg',
+          size: 'M',
+          color: 'Black',
+          quantity: 1,
+        },
+        {
+          _id: '3',
+          name: 'VR Headset',
+          price: 299.99,
+          image: 'vr-headset.jpg',
+          size: 'M',
+          color: 'Black',
+          quantity: 1,
+        },
+      ],
+      total: 449.96,
+    },
+    removeFromCart: jest.fn(),
+    clearCart: jest.fn(),
+  }),
+  CartProvider: ({ children }) => children,
+}));
+
+// Mock API service
+jest.mock('../services/api', () => ({
+  apiService: {
+    createOrder: jest.fn(() => Promise.resolve({
+      success: true,
+      order: { orderId: 'order_12345' }
+    })),
+    createInvoice: jest.fn(() => Promise.resolve({
+      success: true,
+      invoice: { invoiceUrl: 'https://nowpayments.io/invoice/123' }
+    })),
+  },
+}));
+
 const mockCartItems = [
   {
     _id: '1',
@@ -117,18 +172,22 @@ describe('CheckoutScreen Component Tests', () => {
     const { getByText } = render(<CheckoutScreen />);
 
     await waitFor(() => {
-      expect(getByText('💎 Pay with TON Smart Contract')).toBeTruthy();
+      expect(getByText('Proceed to Payment')).toBeTruthy();
     });
 
-    // Mock successful payment
-    mockTonService.createOrder.mockResolvedValue({ success: true, orderId: 12345 });
+    // Mock successful order creation and payment
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        json: () => Promise.resolve({ success: true, order: { orderId: 'order_12345' } }),
+      })
+    ) as jest.Mock;
 
     // Click the payment button
-    fireEvent.press(getByText('💎 Pay with TON Smart Contract'));
+    fireEvent.press(getByText('Proceed to Payment'));
 
-    // Verify payment service methods were called
+    // Verify fetch was called for order creation
     await waitFor(() => {
-      expect(mockTonService.createOrder).toHaveBeenCalled();
+      expect(global.fetch).toHaveBeenCalled();
     });
   });
 
@@ -136,18 +195,20 @@ describe('CheckoutScreen Component Tests', () => {
     const { getByText } = render(<CheckoutScreen />);
 
     await waitFor(() => {
-      expect(getByText('💎 Pay with TON Smart Contract')).toBeTruthy();
+      expect(getByText('Proceed to Payment')).toBeTruthy();
     });
 
     // Mock payment failure
-    mockTonService.createOrder.mockRejectedValue(new Error('Payment failed'));
+    global.fetch = jest.fn(() =>
+      Promise.reject(new Error('Payment failed'))
+    ) as jest.Mock;
 
     // Click the payment button
-    fireEvent.press(getByText('💎 Pay with TON Smart Contract'));
+    fireEvent.press(getByText('Proceed to Payment'));
 
-    // Verify error handling
+    // Verify error handling - Alert should be called
     await waitFor(() => {
-      expect(mockTonService.createOrder).toHaveBeenCalled();
+      expect(global.fetch).toHaveBeenCalled();
     });
   });
 

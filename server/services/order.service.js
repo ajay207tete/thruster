@@ -7,7 +7,7 @@ class OrderService {
   /**
    * Create a new order from cart
    */
-  async createOrderFromCart(walletAddress, paymentMethod) {
+  async createOrderFromCart(walletAddress, paymentMethod, shippingDetails = {}) {
     try {
       // Find user by wallet address
       const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
@@ -31,18 +31,27 @@ class OrderService {
       // Create order items
       const orderItems = cart.items.map(item => ({
         productId: item.productId._id,
-        name: item.productId.name,
+        title: item.productId.name,
         price: item.productId.price,
-        quantity: item.quantity
+        qty: item.quantity
       }));
 
-      // Create order
+      // Create order with shipping details
       const order = new Order({
-        userId: user._id,
-        items: orderItems,
+        userWalletAddress: walletAddress.toLowerCase(),
+        products: orderItems,
+        shippingAddress: {
+          fullName: shippingDetails.fullName || '',
+          phone: shippingDetails.phone || '',
+          addressLine1: shippingDetails.address || '',
+          city: shippingDetails.city || '',
+          state: shippingDetails.state || '',
+          pincode: shippingDetails.postalCode || '',
+          country: shippingDetails.country || 'India'
+        },
         totalAmount,
         paymentMethod,
-        paymentStatus: 'PENDING'
+        paymentStatus: 'pending'
       });
 
       await order.save();
@@ -55,7 +64,8 @@ class OrderService {
         order: {
           _id: order._id,
           orderId: order._id.toString(),
-          items: orderItems,
+          products: orderItems,
+          shippingAddress: order.shippingAddress,
           totalAmount,
           paymentMethod,
           paymentStatus: order.paymentStatus,

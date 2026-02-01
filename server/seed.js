@@ -3,6 +3,7 @@ import User from './models/User.js';
 import Product from './models/Product.js';
 import Order from './models/Order.js';
 import Reward from './models/Reward.js';
+import Task from './models/Task.js';
 import PaymentLog from './models/PaymentLog.js';
 import Cart from './models/Cart.js';
 import dotenv from 'dotenv';
@@ -23,6 +24,7 @@ async function seed() {
     await Product.deleteMany({});
     await Order.deleteMany({});
     await Reward.deleteMany({});
+    await Task.deleteMany({});
     await PaymentLog.deleteMany({});
     await Cart.deleteMany({});
 
@@ -85,8 +87,58 @@ async function seed() {
     const createdProducts = await Product.insertMany(products);
     console.log('Sample products created');
 
+    // Create sample tasks
+    const tasks = [
+      {
+        taskId: 'follow_x',
+        title: 'Follow us on X (Twitter)',
+        points: 100,
+        link: 'https://x.com/thruster_fi',
+        isActive: true
+      },
+      {
+        taskId: 'subscribe_youtube',
+        title: 'Subscribe to our YouTube',
+        points: 75,
+        link: 'https://youtube.com/@thruster_fi',
+        isActive: true
+      },
+      {
+        taskId: 'share_app',
+        title: 'Share Thruster with friends',
+        points: 50,
+        link: 'https://t.me/thruster_bot',
+        isActive: true
+      },
+      {
+        taskId: 'join_telegram',
+        title: 'Join our Telegram channel',
+        points: 75,
+        link: 'https://t.me/thruster_channel',
+        isActive: true
+      },
+      {
+        taskId: 'follow_instagram',
+        title: 'Follow us on Instagram',
+        points: 100,
+        link: 'https://www.instagram.com/thruster.co.in?igsh=cTF2MG05ZDczNHU=',
+        isActive: true
+      },
+      {
+        taskId: 'follow_telegram',
+        title: 'Follow us on Telegram',
+        points: 75,
+        link: 'https://t.me/thruster_channel',
+        isActive: true
+      }
+    ];
+
+    const createdTasks = await Task.insertMany(tasks);
+    console.log('Sample tasks created');
+
     console.log('\n=== SEEDING SUMMARY ===');
     console.log(`Products created: ${createdProducts.length}`);
+    console.log(`Tasks created: ${createdTasks.length}`);
 
     mongoose.connection.close();
     console.log('\nSeeding complete and connection closed');

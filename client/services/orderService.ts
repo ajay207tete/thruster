@@ -22,10 +22,21 @@ export interface Order {
   paidAt?: string;
 }
 
+export interface ShippingDetails {
+  fullName: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
 export interface CreateOrderRequest {
   userWallet: string;
   items: OrderItem[];
   paymentMethod: 'NOWPAYMENTS' | 'TON_NATIVE';
+  shippingDetails: ShippingDetails;
 }
 
 export class OrderService {

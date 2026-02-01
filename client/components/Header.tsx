@@ -8,23 +8,43 @@ import { ThemedText } from '@/components/ThemedText';
 interface HeaderProps {
   backgroundColor?: string;
   showCartIcon?: boolean;
+  showBackButton?: boolean;
+  title?: string;
+  onBackPress?: () => void;
 }
 
-export default function Header({ backgroundColor = '#ffffff', showCartIcon = true }: HeaderProps) {
+export default function Header({
+  backgroundColor = '#000000',
+  showCartIcon = true,
+  showBackButton = true,
+  title = 'THRUSTER',
+  onBackPress
+}: HeaderProps) {
   const { state: cartState } = useCart();
+
+  const handleBackPress = () => {
+    if (onBackPress) {
+      onBackPress();
+    } else {
+      router.back();
+    }
+  };
 
   return (
     <View style={[styles.header, { backgroundColor }]}>
       <View style={styles.leftSection}>
-        <TouchableOpacity onPress={() => router.push('/')} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#00ff00" />
-        </TouchableOpacity>
+        {showBackButton && (
+          <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#00ff00" />
+          </TouchableOpacity>
+        )}
       </View>
       <View style={styles.centerSection}>
+        <ThemedText style={styles.title}>{title}</ThemedText>
       </View>
       <View style={styles.rightSection}>
         {showCartIcon && (
-          <TouchableOpacity onPress={() => router.push('/cart')} style={styles.cartButton}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/cart')} style={styles.cartButton}>
             <Ionicons name="cart" size={30} color="#00ff00" />
             {cartState.cart?.items && cartState.cart.items.length > 0 && (
               <View style={styles.cartBadge}>
@@ -86,5 +106,12 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  title: {
+    color: '#00ff00',
+    fontSize: 20,
+    fontWeight: 'bold',
+    fontFamily: 'SpaceMono',
+    textAlign: 'center',
   },
 });

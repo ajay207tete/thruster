@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { OrderService, Order, OrderItem } from '../services/orderService';
+import { OrderService, Order, OrderItem, ShippingDetails } from '../services/orderService';
 import { PaymentService, defaultPaymentConfig } from '../services/paymentService';
 import { tonService } from '../services/tonService-updated';
 import { WalletService } from '../services/walletService';
 import { useTonConnectUI } from '@tonconnect/ui-react';
 import { OrderSummary } from './OrderSummary';
+import { ShippingForm } from './ShippingForm';
 
 interface CheckoutFlowProps {
   cartItems: OrderItem[];
@@ -18,12 +19,13 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
   onOrderComplete,
   onCancel
 }) => {
-  const [step, setStep] = useState<'wallet' | 'payment-method' | 'processing' | 'complete'>('wallet');
+  const [step, setStep] = useState<'wallet' | 'shipping' | 'payment-method' | 'processing' | 'complete'>('wallet');
   const [paymentMethod, setPaymentMethod] = useState<'NOWPAYMENTS' | 'TON_NATIVE'>('TON_NATIVE');
   const [order, setOrder] = useState<Order | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [shippingDetails, setShippingDetails] = useState<ShippingDetails | null>(null);
 
   const [tonConnectUI] = useTonConnectUI();
   const orderService = new OrderService();
@@ -32,7 +34,7 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
 
   useEffect(() => {
     if (isConnected && step === 'wallet') {
-      setStep('payment-method');
+      setStep('shipping');
     }
   }, [isConnected, step]);
 
@@ -52,6 +54,11 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
       return;
     }
 
+    if (!shippingDetails) {
+      Alert.alert('Error', 'Shipping details are required');
+      return;
+    }
+
     setIsProcessing(true);
     setStep('processing');
 
@@ -59,40 +66,13 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
       const newOrder = await orderService.createOrder({
         userWallet: walletAddress,
         items: cartItems,
-        paymentMethod
+        paymentMethod,
+        shippingDetails
       });
 
       setOrder(newOrder);
-
-      if (paymentMethod === 'NOWPAYMENTS') {
-        // Create NOWPayments invoice
-        const invoice = await paymentService.createNOWPaymentsInvoice(newOrder.id);
-        // Open invoice URL in browser
-        // This would typically open the invoice URL
-        Alert.alert('Payment Required', `Please complete payment at: ${invoice.invoiceUrl}`);
-      } else {
-        // TON Native payment
-        const totalAmount = newOrder.totalAmount.toString();
-        const result = await tonService.sendPayment(totalAmount, newOrder.id);
-
-        if (result.success) {
-          // Update order with transaction hash
-          await orderService.updateOrderPayment(newOrder.id, result.transactionHash!);
-
-          // Verify payment on server
-          const verification = await paymentService.verifyTONPayment(newOrder.id, result.transactionHash!);
-          if (verification.success) {
-            setStep('complete');
-            onOrderComplete(newOrder);
-          } else {
-            Alert.alert('Error', 'Payment verification failed');
-            setStep('payment-method');
-          }
-        } else {
-          Alert.alert('Error', result.error || 'Payment failed');
-          setStep('payment-method');
-        }
-      }
+      setStep('complete');
+      onOrderComplete(newOrder);
     } catch (error) {
       console.error('Order creation error:', error);
       Alert.alert('Error', 'Failed to create order');
@@ -145,6 +125,16 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
         <Text style={{ color: '#333' }}>Cancel</Text>
       </TouchableOpacity>
     </View>
+  );
+
+  const renderShippingStep = () => (
+    <ShippingForm
+      onSubmit={(details) => {
+        setShippingDetails(details);
+        setStep('payment-method');
+      }}
+      onCancel={() => setStep('wallet')}
+    />
   );
 
   const renderPaymentMethodStep = () => (
@@ -274,6 +264,8 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
   switch (step) {
     case 'wallet':
       return renderWalletStep();
+    case 'shipping':
+      return renderShippingStep();
     case 'payment-method':
       return renderPaymentMethodStep();
     case 'processing':

@@ -1,51 +1,16 @@
- import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, FlatList, TouchableOpacity, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, router } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import PageHeader from '@/components/PageHeader';
-import { Product } from '@/app/(tabs)/shop';
+import { useCart } from '@/contexts/CartContext';
 
 export default function CartScreen() {
-  const { cartItems: cartItemsParam } = useLocalSearchParams();
-  const [cartItems, setCartItems] = useState<Product[]>([]);
+  const { state: cartState, updateCartItem, removeFromCart } = useCart();
   const [editingItem, setEditingItem] = useState<string | null>(null);
-
-  const loadCartItems = useCallback(async () => {
-    try {
-      const storedCart = await AsyncStorage.getItem('cartItems');
-      if (storedCart) {
-        const parsedItems = JSON.parse(storedCart);
-        const updatedItems = parsedItems.map((item: any) => ({
-          ...item,
-          quantity: item.quantity || 1,
-          price: typeof item.price === 'string' ? parseFloat(item.price) : item.price,
-        }));
-        setCartItems(updatedItems);
-      } else if (cartItemsParam && typeof cartItemsParam === 'string') {
-        const parsedItems = JSON.parse(cartItemsParam);
-        const updatedItems = parsedItems.map((item: any) => ({
-          ...item,
-          quantity: item.quantity || 1,
-          price: typeof item.price === 'string' ? parseFloat(item.price) : item.price,
-        }));
-        setCartItems(updatedItems);
-      }
-    } catch (error) {
-      console.error('Error loading cart items:', error);
-      setCartItems([]);
-    }
-  }, [cartItemsParam]);
-
-  useEffect(() => {
-    loadCartItems();
-  }, [loadCartItems]);
-
-  useFocusEffect(useCallback(() => { loadCartItems().catch(error => console.error('Error in focus effect:', error)); }, [loadCartItems]));
 
   const handleRemoveItem = (id: string) => {
     Alert.alert(
@@ -58,9 +23,7 @@ export default function CartScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const updatedItems = cartItems.filter(item => item._id !== id);
-              setCartItems(updatedItems);
-              await AsyncStorage.setItem('cartItems', JSON.stringify(updatedItems));
+              await removeFromCart(id);
             } catch (error) {
               console.error('Error removing item from cart:', error);
               Alert.alert('Error', 'Failed to remove item from cart. Please try again.');
@@ -76,90 +39,98 @@ export default function CartScreen() {
   };
 
   const handleCheckout = () => {
-    if (cartItems.length === 0) {
+    if (!cartState.cart || cartState.cart.items.length === 0) {
       Alert.alert('Empty Cart', 'Add some items to your cart before checking out.');
       return;
     }
     // Navigate to checkout screen
-    router.push({
-      pathname: '/checkout',
-      params: { cartItems: JSON.stringify(cartItems) },
-    });
+    router.push('/checkout');
   };
 
   const getTotalPrice = () => {
-    return cartItems.reduce((total, item) => total + (item.price * (item.quantity || 1)), 0).toFixed(2);
+    return cartState.cart ? cartState.cart.totalPrice.toFixed(2) : '0.00';
   };
 
-  const handleQuantityChange = async (id: string, delta: number) => {
-    const updatedItems = cartItems.map(item =>
-      item._id === id
-        ? { ...item, quantity: Math.max(1, (item.quantity || 1) + delta) }
-        : item
-    );
-    setCartItems(updatedItems);
-    await AsyncStorage.setItem('cartItems', JSON.stringify(updatedItems));
+  const handleQuantityChange = async (itemId: string, delta: number) => {
+    const item = cartState.cart?.items.find(item => item._id === itemId);
+    if (item) {
+      const newQuantity = Math.max(1, item.quantity + delta);
+      await updateCartItem(itemId, newQuantity);
+    }
   };
 
-  const handleSizeChange = async (id: string, size: string) => {
-    const updatedItems = cartItems.map(item =>
-      item._id === id
-        ? { ...item, size }
-        : item
-    );
-    setCartItems(updatedItems);
-    await AsyncStorage.setItem('cartItems', JSON.stringify(updatedItems));
+  const handleSizeChange = async (itemId: string, size: string) => {
+    // Note: Size change would require updating the cart item with new size
+    // This might need a new method in CartContext or API call
+    Alert.alert('Info', 'Size change not implemented yet');
   };
 
-  const handleColorChange = async (id: string, color: string) => {
-    const updatedItems = cartItems.map(item =>
-      item._id === id
-        ? { ...item, color }
-        : item
-    );
-    setCartItems(updatedItems);
-    await AsyncStorage.setItem('cartItems', JSON.stringify(updatedItems));
+  const handleColorChange = async (itemId: string, color: string) => {
+    // Note: Color change would require updating the cart item with new color
+    // This might need a new method in CartContext or API call
+    Alert.alert('Info', 'Color change not implemented yet');
   };
-  const renderItem = ({ item }: { item: Product }) => (
+  const renderItem = ({ item }: { item: any }) => (
     <View style={styles.cartItem}>
-      {item.image ? (
-        <Image source={{ uri: item.image }} style={styles.itemImage} />
+      {item.product?.image ? (
+        <Image source={{ uri: item.product.image }} style={styles.itemImage} />
       ) : (
         <Ionicons name="shirt" size={40} color="#00ff00" style={styles.itemIcon} />
       )}
       <View style={styles.itemDetails}>
-        <ThemedText style={styles.itemText}>{item.name}</ThemedText>
+        <ThemedText style={styles.itemText}>{item.product?.name || 'Product'}</ThemedText>
         {editingItem === item._id ? (
           <>
             <View style={styles.optionRow}>
               <ThemedText style={styles.optionLabel}>Size:</ThemedText>
-              {item.sizes?.map((size) => (
-                <TouchableOpacity
-                  key={size}
-                  style={[
-                    styles.optionButton,
-                    item.size === size && styles.optionButtonSelected,
-                  ]}
-                  onPress={() => handleSizeChange(item._id, size)}
-                >
-                  <ThemedText style={styles.optionText}>{size}</ThemedText>
-                </TouchableOpacity>
-              ))}
+              <TouchableOpacity
+                style={[
+                  styles.optionButton,
+                  item.size === 'S' && styles.optionButtonSelected,
+                ]}
+                onPress={() => handleSizeChange(item._id, 'S')}
+              >
+                <ThemedText style={styles.optionText}>S</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.optionButton,
+                  item.size === 'M' && styles.optionButtonSelected,
+                ]}
+                onPress={() => handleSizeChange(item._id, 'M')}
+              >
+                <ThemedText style={styles.optionText}>M</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.optionButton,
+                  item.size === 'L' && styles.optionButtonSelected,
+                ]}
+                onPress={() => handleSizeChange(item._id, 'L')}
+              >
+                <ThemedText style={styles.optionText}>L</ThemedText>
+              </TouchableOpacity>
             </View>
             <View style={styles.optionRow}>
               <ThemedText style={styles.optionLabel}>Color:</ThemedText>
-              {item.colors?.map((color) => (
-                <TouchableOpacity
-                  key={color}
-                  style={[
-                    styles.optionButton,
-                    item.color === color && styles.optionButtonSelected,
-                  ]}
-                  onPress={() => handleColorChange(item._id, color)}
-                >
-                  <ThemedText style={styles.optionText}>{color}</ThemedText>
-                </TouchableOpacity>
-              ))}
+              <TouchableOpacity
+                style={[
+                  styles.optionButton,
+                  item.color === 'Red' && styles.optionButtonSelected,
+                ]}
+                onPress={() => handleColorChange(item._id, 'Red')}
+              >
+                <ThemedText style={styles.optionText}>Red</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.optionButton,
+                  item.color === 'Blue' && styles.optionButtonSelected,
+                ]}
+                onPress={() => handleColorChange(item._id, 'Blue')}
+              >
+                <ThemedText style={styles.optionText}>Blue</ThemedText>
+              </TouchableOpacity>
             </View>
             <View style={styles.optionRow}>
               <ThemedText style={styles.optionLabel}>Quantity:</ThemedText>
@@ -169,7 +140,7 @@ export default function CartScreen() {
               >
                 <ThemedText style={styles.optionText}>-</ThemedText>
               </TouchableOpacity>
-              <ThemedText style={styles.quantityText}>{item.quantity || 1}</ThemedText>
+              <ThemedText style={styles.quantityText}>{item.quantity}</ThemedText>
               <TouchableOpacity
                 style={styles.quantityButton}
                 onPress={() => handleQuantityChange(item._id, 1)}
@@ -182,11 +153,11 @@ export default function CartScreen() {
           <>
             <ThemedText style={styles.itemDetailsText}>Size: {item.size || 'N/A'}</ThemedText>
             <ThemedText style={styles.itemDetailsText}>Color: {item.color || 'N/A'}</ThemedText>
-            <ThemedText style={styles.itemDetailsText}>Quantity: {item.quantity || 1}</ThemedText>
+            <ThemedText style={styles.itemDetailsText}>Quantity: {item.quantity}</ThemedText>
           </>
         )}
       </View>
-      <ThemedText style={styles.priceText}>${(item.price * (item.quantity || 1)).toFixed(2)}</ThemedText>
+      <ThemedText style={styles.priceText}>${item.price.toFixed(2)}</ThemedText>
       <TouchableOpacity
         onPress={() => setEditingItem(editingItem === item._id ? null : item._id)}
         style={styles.editButton}
@@ -206,7 +177,7 @@ export default function CartScreen() {
         onBackPress={handleBackToShop}
       />
 
-      {cartItems.length === 0 ? (
+      {!cartState.cart || cartState.cart.items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="cart" size={80} color="#333333" />
           <ThemedText style={styles.emptyText}>Your cart is empty.</ThemedText>
@@ -217,7 +188,7 @@ export default function CartScreen() {
       ) : (
         <>
           <FlatList
-            data={cartItems}
+            data={cartState.cart.items}
             keyExtractor={(item) => item._id}
             renderItem={renderItem}
             contentContainerStyle={styles.list}

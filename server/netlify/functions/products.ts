@@ -44,10 +44,39 @@ export const handler: Handler = async (event, context) => {
     await connectDB();
     console.log('MongoDB connection established successfully');
 
-    const products = await Product.find({}).sort({ createdAt: -1 });
-    console.log(`Found ${products.length} products in database`);
+    // Parse query parameters for pagination
+    const queryParams = event.queryStringParameters || {};
+    const page = parseInt(queryParams.page) || 1;
+    const limit = parseInt(queryParams.limit) || 10; // Default limit of 10 products per page
 
-    const responseData = { products };
+    // Calculate skip value for pagination
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination metadata
+    const totalProducts = await Product.countDocuments({});
+    const totalPages = Math.ceil(totalProducts / limit);
+
+    // Fetch products with pagination
+    const products = await Product.find({})
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    console.log(`Found ${products.length} products for page ${page} (limit: ${limit})`);
+    console.log(`Total products in database: ${totalProducts}, Total pages: ${totalPages}`);
+
+    const responseData = {
+      products,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalProducts,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+        limit
+      }
+    };
+
     console.log(`Response length: ${JSON.stringify(responseData).length} characters`);
 
     return {

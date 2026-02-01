@@ -1,4 +1,5 @@
 {
   "url": "https://thruster.netlify.app",
-  "name": "Thruster DApp"
+  "name": "Thruster DApp",
+  "iconUrl": "https://thruster.netlify.app/icon.png"
 }

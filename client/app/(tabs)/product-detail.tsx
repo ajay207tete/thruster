@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import PageHeader from '@/components/PageHeader';
 import { apiService } from '@/services/api';
+import { useCart } from '@/contexts/CartContext';
 
 export interface Product {
   _id: string;
@@ -23,6 +24,7 @@ export interface Product {
 export default function ProductDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { addToCart } = useCart();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,25 +110,16 @@ export default function ProductDetailScreen() {
     });
   };
 
-  const handleAddToCart = () => {
-    const cartItem = {
-      _id: product._id + selectedSize + selectedColor,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      size: selectedSize,
-      color: selectedColor,
-      quantity: 1,
-    };
-
-    router.push({
-      pathname: '/cart',
-      params: {
-        cartItems: JSON.stringify([cartItem]),
-      },
-    });
-
-    Alert.alert('Added to Cart', `${product.name} (${selectedSize}, ${selectedColor}) has been added to your cart.`);
+  const handleAddToCart = async () => {
+    try {
+      await addToCart(product._id, 1, selectedSize, selectedColor);
+      Alert.alert('Added to Cart', `${product.name} (${selectedSize}, ${selectedColor}) has been added to your cart.`);
+      // Optionally navigate to checkout
+      // router.push('/checkout');
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      Alert.alert('Error', 'Failed to add item to cart. Please try again.');
+    }
   };
 
   return (

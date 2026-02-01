@@ -24,20 +24,14 @@ const PORT = process.env.PORT || 5002;
 
 // CORS configuration
 const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = process.env.CORS_ORIGIN ?
-      process.env.CORS_ORIGIN.split(',') :
-      ['http://localhost:8081', 'http://localhost:3000', 'http://localhost:19006'];
-
-    // Allow requests with no origin (mobile apps, etc.)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: [
+    'http://localhost:8081',
+    'http://localhost:8082',
+    'http://localhost:8085',
+    'http://localhost:3000',
+    'http://localhost:19006',
+    'http://localhost:19000'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']

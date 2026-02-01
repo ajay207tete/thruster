@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8888/.netlify/functions'; // Server API base URL
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:5000'; // Express backend base URL
 
 // Types
 export interface Product {
@@ -89,23 +89,30 @@ class ApiService {
   });
 
   // Products
-  async getProducts() {
-    const response = await this.api.get('/products');
+  async getProducts(page?: number, limit?: number) {
+    const params: any = {};
+    if (page) params.page = page;
+    if (limit) params.limit = limit;
+    console.log('API HIT FROM FRONTEND - getProducts');
+    const response = await this.api.get('/api/products', { params });
     return response.data;
   }
 
   async getProductById(id: string) {
-    const response = await this.api.get(`/products/${id}`);
+    console.log('API HIT FROM FRONTEND - getProductById');
+    const response = await this.api.get(`/api/products/${id}`);
     return response.data;
   }
 
   async getCart(walletAddress: string) {
-    const response = await this.api.get(`/cart/${walletAddress}`);
+    console.log('API HIT FROM FRONTEND - getCart');
+    const response = await this.api.get(`/api/cart/${walletAddress}`);
     return response.data;
   }
 
   async createProduct(productData: { name: string; description: string; price: number; imageUrl: string; sizes?: string[]; colors?: string[]; category?: string; stock?: number }) {
-    const response = await this.api.post('/products', {
+    console.log('API HIT FROM FRONTEND - createProduct');
+    const response = await this.api.post('/api/products', {
       name: productData.name,
       description: productData.description,
       price: productData.price,
@@ -119,12 +126,14 @@ class ApiService {
   }
 
   async updateProduct(id: string, productData: { name?: string; description?: string; price?: number; imageUrl?: string; sizes?: string[]; colors?: string[]; category?: string; stock?: number }) {
-    const response = await this.api.put(`/products/${id}`, productData);
+    console.log('API HIT FROM FRONTEND - updateProduct');
+    const response = await this.api.put(`/api/products/${id}`, productData);
     return response.data;
   }
 
   async deleteProduct(id: string) {
-    const response = await this.api.delete(`/products/${id}`);
+    console.log('API HIT FROM FRONTEND - deleteProduct');
+    const response = await this.api.delete(`/api/products/${id}`);
     return response.data;
   }
 
@@ -191,7 +200,7 @@ class ApiService {
     return response.data;
   }
 
-  // Hotels
+  // Hotels - Note: These might not be implemented as Netlify functions yet
   async searchHotels(cityCode: string, checkInDate: string, checkOutDate: string, adults?: number) {
     const response = await this.api.get('/hotels/search', {
       params: { cityCode, checkInDate, checkOutDate, adults }
@@ -213,12 +222,12 @@ class ApiService {
 
   // Orders for OrderService
   async createOrderForOrderService(orderData: any) {
-    const response = await this.api.post('/order/create', orderData);
+    const response = await this.api.post('/.netlify/functions/order/create', orderData);
     return response.data;
   }
 
   async getOrderHistoryForOrderService(walletAddress: string) {
-    const response = await this.api.get(`/order/history/${walletAddress}`);
+    const response = await this.api.get(`/.netlify/functions/order/history/${walletAddress}`);
     return response.data;
   }
 

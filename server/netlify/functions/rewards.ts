@@ -2,6 +2,7 @@ import { Handler } from '@netlify/functions';
 import mongoose from 'mongoose';
 import User from '../../models/User';
 import Reward from '../../models/Reward';
+import Task from '../../models/Task';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -33,11 +34,23 @@ export const handler: Handler = async (event) => {
   try {
     await connectDB();
 
-    if (event.httpMethod === 'GET') {
-      // Get rewards history
-      const wallet = event.path.split('/').pop();
+    const path = event.path.replace('/.netlify/functions/rewards', '');
 
-      if (!wallet || !validateWalletAddress(wallet)) {
+    // GET /api/tasks - Return all tasks
+    if (event.httpMethod === 'GET' && path === '/tasks') {
+      const tasks = await Task.find({ isActive: true }).lean();
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify(tasks),
+      };
+    }
+
+    // GET /api/users/:walletAddress - Return: { points, completedTasks }
+    if (event.httpMethod === 'GET' && path.startsWith('/users/')) {
+      const walletAddress = path.replace('/users/', '');
+
+      if (!walletAddress || !validateWalletAddress(walletAddress)) {
         return {
           statusCode: 400,
           headers,
@@ -45,48 +58,32 @@ export const handler: Handler = async (event) => {
         };
       }
 
-      // Find or create user
-      let user = await User.findOne({ walletAddress: wallet.toLowerCase() });
+      let user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
       if (!user) {
         user = new User({
-          walletAddress: wallet.toLowerCase(),
+          walletAddress: walletAddress.toLowerCase(),
           totalPoints: 0,
+          completedTasks: [],
           isActive: true
         });
         await user.save();
       }
 
-      // Get rewards with new schema
-      const rewards = await Reward.find({ userId: wallet.toLowerCase() })
-        .sort({ completedAt: -1 })
-        .lean();
-
-      // Transform to old format for frontend compatibility
-      const transformedRewards = rewards.map(reward => ({
-        _id: reward._id,
-        actionType: reward.rewardType,
-        platform: reward.actionId,
-        points: reward.points,
-        status: reward.verified ? 'COMPLETED' : 'PENDING',
-        timestamp: reward.completedAt.toISOString()
-      }));
-
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
-          success: true,
-          totalPoints: user.totalPoints,
-          rewards: transformedRewards,
+          points: user.totalPoints,
+          completedTasks: user.completedTasks
         }),
       };
     }
 
-    if (event.httpMethod === 'POST') {
-      // Claim social reward
-      const { walletAddress, actionType, platform } = JSON.parse(event.body || '{}');
+    // POST /api/rewards/claim - Body: { walletAddress, taskId }
+    if (event.httpMethod === 'POST' && path === '/claim') {
+      const { walletAddress, taskId } = JSON.parse(event.body || '{}');
 
-      if (!walletAddress || !actionType || !platform) {
+      if (!walletAddress || !taskId) {
         return {
           statusCode: 400,
           headers,
@@ -102,45 +99,34 @@ export const handler: Handler = async (event) => {
         };
       }
 
+      // Find task
+      const task = await Task.findOne({ taskId, isActive: true });
+      if (!task) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ success: false, error: 'Invalid task' }),
+        };
+      }
+
       // Find or create user
       let user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
       if (!user) {
         user = new User({
           walletAddress: walletAddress.toLowerCase(),
           totalPoints: 0,
+          completedTasks: [],
           isActive: true
         });
         await user.save();
       }
 
-      // Check if reward already claimed using new schema
-      const existingReward = await Reward.findOne({
-        userId: walletAddress.toLowerCase(),
-        rewardType: actionType,
-        actionId: platform,
-      });
-
-      if (existingReward) {
+      // Check if task already completed
+      if (user.completedTasks.includes(taskId)) {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ success: false, error: 'Reward already claimed' }),
-        };
-      }
-
-      // Define points for each action
-      const pointsMap: { [key: string]: number } = {
-        FOLLOW_X: 100,
-        FOLLOW_INSTAGRAM: 100,
-        SHARE_APP: 100,
-      };
-
-      const points = pointsMap[actionType];
-      if (!points) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ success: false, error: 'Invalid action type' }),
+          body: JSON.stringify({ success: false, error: 'Task already completed' }),
         };
       }
 
@@ -149,26 +135,29 @@ export const handler: Handler = async (event) => {
       session.startTransaction();
 
       try {
-        // Create reward record with new schema
+        // Create reward record
         const reward = new Reward({
           userId: walletAddress.toLowerCase(),
-          rewardType: actionType,
-          actionId: platform,
-          points,
+          rewardType: taskId,
+          actionId: taskId,
+          points: task.points,
           completedAt: new Date(),
           verified: true,
           metadata: {
-            platform,
-            claimedVia: 'social_action'
+            taskId,
+            claimedVia: 'task_completion'
           }
         });
 
         await reward.save({ session });
 
-        // Update user's total points
+        // Update user's total points and completed tasks
         await User.findByIdAndUpdate(
           user._id,
-          { $inc: { totalPoints: points } },
+          {
+            $inc: { totalPoints: task.points },
+            $push: { completedTasks: taskId }
+          },
           { session, new: true }
         );
 
@@ -182,9 +171,9 @@ export const handler: Handler = async (event) => {
           headers,
           body: JSON.stringify({
             success: true,
-            message: `${points} points added!`,
-            pointsAdded: points,
-            totalPoints: updatedUser?.totalPoints || user.totalPoints + points,
+            message: `${task.points} points added!`,
+            pointsAdded: task.points,
+            totalPoints: updatedUser?.totalPoints || user.totalPoints + task.points,
           }),
         };
       } catch (error) {
@@ -196,9 +185,9 @@ export const handler: Handler = async (event) => {
     }
 
     return {
-      statusCode: 405,
+      statusCode: 404,
       headers,
-      body: JSON.stringify({ success: false, error: 'Method not allowed' }),
+      body: JSON.stringify({ success: false, error: 'Endpoint not found' }),
     };
   } catch (error) {
     console.error('Rewards function error:', error);

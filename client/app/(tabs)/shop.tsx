@@ -30,6 +30,7 @@ export default function ShopScreen() {
   const { state: cartState, addToCart } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<{ [key: string]: string }>({});
   const [selectedColor, setSelectedColor] = useState<{ [key: string]: string }>({});
@@ -37,78 +38,144 @@ export default function ShopScreen() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [walletLoading, setWalletLoading] = useState<boolean>(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(true);
+  const [totalProducts, setTotalProducts] = useState(0);
 
   useEffect(() => {
+    console.log("Shop mounted");
     checkWalletConnection();
+    fetchProducts();
   }, []);
 
   const checkWalletConnection = async () => {
     try {
       const address = tonService.getWalletAddress();
-      if (!address) {
-        Alert.alert(
-          'Wallet Required',
-          'Please connect your wallet to access the shop',
-          [
-            { text: 'Cancel', style: 'cancel', onPress: () => router.back() },
-            { text: 'Connect Wallet', onPress: () => router.push('/') }
-          ]
-        );
-        setWalletLoading(false);
-        return;
+      if (address) {
+        setWalletAddress(address);
+        console.log('Shop Page - Wallet Address:', address);
       }
-      setWalletAddress(address);
-      console.log('Shop Page - Wallet Address:', address);
     } catch (error) {
       console.error('Error checking wallet:', error);
-      Alert.alert('Error', 'Failed to check wallet connection');
     } finally {
       setWalletLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (walletAddress) {
-      const fetchProducts = async () => {
-        try {
-          setLoading(true);
-          setError(null);
-          console.log('Fetching products from backend API...');
-          const data = await apiService.getProducts();
-          console.log('API response received:', data);
-          console.log('Products fetched from backend:', Array.isArray(data) ? data.length : 0);
+  const fetchProducts = async (page: number = 1, append: boolean = false) => {
+    try {
+      if (!append) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+      setError(null);
+      console.log(`Shop: Fetching products from backend API (page ${page})...`);
+      console.log('Shop: API base URL:', process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:5002/api');
 
-          // Defensive check for data structure - server returns direct array
-          if (!Array.isArray(data)) {
-            throw new Error('Invalid response format from API - expected array');
-          }
+      const data = await apiService.getProducts(page, 10); // 10 products per page
+      console.log('Shop: Raw API response:', data);
+      console.log('Shop: Response type:', typeof data);
 
-          // Normalize product data from backend to match frontend interface
-          const processedProducts = data.map((product: any) => ({
-            id: product._id || product.id,
-            title: product.name || 'Unnamed Product',
-            description: product.description || 'No description available',
-            price: product.price || 0,
-            image: product.imageUrl || null,
-            sizes: Array.isArray(product.sizes) ? product.sizes : [],
-            colors: Array.isArray(product.colors) ? product.colors : [],
-            category: product.category || 'General',
-            stock: product.stock || 0
-          }));
+      // Add response guard to prevent undefined.name errors
+      if (!Array.isArray(data) && !data.products) {
+        console.error('Shop: Invalid API response format - expected array or object with products property');
+        throw new Error('Invalid API response format');
+      }
 
-          console.log('Processed products array length:', processedProducts.length);
+      // Check if response has the new pagination structure
+      if (data.products && Array.isArray(data.products)) {
+        console.log('Shop: Using paginated response format');
+        console.log('Shop: Products length:', data.products.length);
+        console.log('Shop: Pagination info:', data.pagination);
+
+        // Filter out undefined/null products and normalize product data from backend to match frontend interface
+        const processedProducts = data.products
+          .filter((product: any) => product && typeof product === 'object')
+          .map((product: any, index: number) => {
+            console.log(`Shop: Processing product ${index}:`, product);
+            return {
+              id: product._id || product.id || `product-${index}`,
+              title: product.name || 'Unnamed Product',
+              description: product.description || 'No description available',
+              price: product.price || 0,
+              image: product.imageUrl || null,
+              sizes: Array.isArray(product.sizes) ? product.sizes : [],
+              colors: Array.isArray(product.colors) ? product.colors : [],
+              category: product.category || 'General',
+              stock: product.stock || 0
+            };
+          });
+
+        console.log('Shop: Processed products array length:', processedProducts.length);
+
+        if (append) {
+          setProducts(prev => [...prev, ...processedProducts]);
+        } else {
           setProducts(processedProducts);
-          console.log('Products set in state - Products fetched → Products rendered');
-        } catch (error) {
-          console.error('Failed to fetch backend products:', error);
-          setError('Failed to load products. Please try again.');
-        } finally {
-          setLoading(false);
         }
-      };
-      fetchProducts();
+
+        setCurrentPage(data.pagination.currentPage);
+        setHasNextPage(data.pagination.hasNextPage);
+        setTotalProducts(data.pagination.totalProducts);
+
+        console.log('Shop: Products set in state successfully - Products fetched → Products rendered');
+      } else if (Array.isArray(data)) {
+        // Fallback for old format (direct array)
+        console.log('Shop: Using legacy response format (direct array)');
+        console.log('Shop: Products length:', data.length);
+
+        if (data.length === 0) {
+          console.log('Shop: No products found in database');
+        } else {
+          console.log('Shop: First product sample:', data[0]);
+        }
+
+        // Filter out undefined/null products and normalize product data from backend to match frontend interface
+        const processedProducts = data
+          .filter((product: any) => product && typeof product === 'object')
+          .map((product: any, index: number) => {
+            console.log(`Shop: Processing product ${index}:`, product);
+            return {
+              id: product._id || product.id || `product-${index}`,
+              title: product.name || 'Unnamed Product',
+              description: product.description || 'No description available',
+              price: product.price || 0,
+              image: product.imageUrl || null,
+              sizes: Array.isArray(product.sizes) ? product.sizes : [],
+              colors: Array.isArray(product.colors) ? product.colors : [],
+              category: product.category || 'General',
+              stock: product.stock || 0
+            };
+          });
+
+        console.log('Shop: Processed products array length:', processedProducts.length);
+        console.log('Shop: Setting products in state...');
+        setProducts(processedProducts);
+        setCurrentPage(1);
+        setHasNextPage(false); // Assume no pagination in legacy mode
+        setTotalProducts(processedProducts.length);
+        console.log('Shop: Products set in state successfully - Products fetched → Products rendered');
+      } else {
+        console.error('Shop: Invalid response format - expected array or paginated object, got:', data);
+        throw new Error('Invalid response format from API');
+      }
+    } catch (error) {
+      console.error('Shop: Failed to fetch backend products:', error);
+      setError('Failed to load products. Please try again.');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
     }
-  }, [walletAddress]);
+  };
+
+  const loadMoreProducts = () => {
+    if (hasNextPage && !loadingMore) {
+      const nextPage = currentPage + 1;
+      console.log(`Shop: Loading more products - next page: ${nextPage}`);
+      fetchProducts(nextPage, true);
+    }
+  };
 
   useEffect(() => {
     console.log('React state after setProducts:', products);
@@ -306,17 +373,19 @@ export default function ShopScreen() {
                   console.log('Fetched products:', data);
                   console.log('Number of products:', data.products.length);
 
-                  const processedProducts = data.products.map((product: any) => ({
-                    id: product._id,
-                    title: product.name,
-                    description: product.description || 'No description available',
-                    price: product.price,
-                    image: product.imageUrl || null,
-                    sizes: product.sizes || [],
-                    colors: product.colors || [],
-                    category: product.category,
-                    stock: product.stock
-                  }));
+                  const processedProducts = data.products
+                    .filter((product: any) => product && typeof product === 'object')
+                    .map((product: any, index: number) => ({
+                      id: product._id || product.id || `product-${index}`,
+                      title: product.name || 'Unnamed Product',
+                      description: product.description || 'No description available',
+                      price: product.price || 0,
+                      image: product.imageUrl || null,
+                      sizes: Array.isArray(product.sizes) ? product.sizes : [],
+                      colors: Array.isArray(product.colors) ? product.colors : [],
+                      category: product.category || 'General',
+                      stock: product.stock || 0
+                    }));
 
                   setProducts(processedProducts);
                 } catch (retryError) {
@@ -331,7 +400,7 @@ export default function ShopScreen() {
               <ThemedText style={styles.retryText}>Retry</ThemedText>
             </TouchableOpacity>
           </View>
-        ) : products.length > 0 ? (
+        ) : Array.isArray(products) && products.length > 0 ? (
           <FlatList
             data={products}
             keyExtractor={(item) => item.id}
@@ -339,11 +408,33 @@ export default function ShopScreen() {
             numColumns={2}
             contentContainerStyle={styles.productList}
             showsVerticalScrollIndicator={false}
+            ListFooterComponent={
+              hasNextPage ? (
+                <View style={styles.loadMoreContainer}>
+                  {loadingMore ? (
+                    <View style={styles.loadingMore}>
+                      <ActivityIndicator size="small" color="#00ff00" />
+                      <ThemedText style={styles.loadingMoreText}>Loading more products...</ThemedText>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={styles.loadMoreButton} onPress={loadMoreProducts}>
+                      <Ionicons name="add-circle" size={20} color="#000000" />
+                      <ThemedText style={styles.loadMoreText}>Load More Products</ThemedText>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ) : null
+            }
           />
-        ) : (
+        ) : !loading && Array.isArray(products) ? (
           <View style={styles.emptyState}>
             <Ionicons name="shirt" size={80} color="#333333" />
             <ThemedText style={styles.emptyText}>No products available</ThemedText>
+          </View>
+        ) : (
+          <View style={styles.errorState}>
+            <Ionicons name="alert-circle" size={60} color="#ff0000" />
+            <ThemedText style={styles.errorText}>Failed to load products data</ThemedText>
           </View>
         )}
       </View>
@@ -607,6 +698,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#cccccc',
     marginBottom: 20,
+    fontFamily: 'SpaceMono',
+  },
+  loadMoreContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+  },
+  loadMoreButton: {
+    backgroundColor: '#00ff00',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 200,
+  },
+  loadMoreText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    fontFamily: 'SpaceMono',
+  },
+  loadingMore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  loadingMoreText: {
+    color: '#00ff00',
+    fontSize: 16,
+    marginLeft: 8,
     fontFamily: 'SpaceMono',
   },
 });

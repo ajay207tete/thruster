@@ -3,8 +3,13 @@
  * Coordinates all payment providers and systems
  */
 
-import { tonService, TonService, TonContractConfig } from './tonService-updated';
 import { TonConnectUIProvider } from '@tonconnect/ui-react';
+
+export interface TonContractConfig {
+  address: string;
+  network: string;
+  endpoint: string;
+}
 
 export interface PaymentConfig {
   ton: TonContractConfig;
@@ -325,16 +330,6 @@ export class PaymentService {
   async checkSystemHealth(): Promise<{healthy: boolean, issues: string[]}> {
     const issues: string[] = [];
 
-    try {
-      // Check TON service
-      const tonBalance = await tonService.getContractBalance();
-      if (!tonBalance || tonBalance === '0') {
-        issues.push('TON service may not be responding correctly');
-      }
-    } catch (error) {
-      issues.push('TON service health check failed');
-    }
-
     // Check providers
     for (const [name, provider] of this.providers) {
       if (!provider.isInitialized || !provider.isAvailable) {
@@ -353,6 +348,77 @@ export class PaymentService {
    */
   getConfig(): PaymentConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Create NOWPayments invoice for an order
+   */
+  async createNOWPaymentsInvoice(orderId: string): Promise<{ invoiceUrl: string; paymentId: string }> {
+    try {
+      const response = await fetch(`${this.config.nowPayments.apiUrl}/invoice`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.config.nowPayments.apiKey
+        },
+        body: JSON.stringify({
+          price_amount: 0, // Will be set by the server
+          price_currency: 'usd',
+          order_id: orderId,
+          order_description: `Order ${orderId}`,
+          success_url: `${window.location.origin}/order-success`,
+          cancel_url: `${window.location.origin}/shop`
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`NOWPayments API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        invoiceUrl: data.invoice_url,
+        paymentId: data.id
+      };
+    } catch (error) {
+      console.error('Error creating NOWPayments invoice:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Verify TON payment
+   */
+  async verifyTONPayment(orderId: string, transactionHash: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      // This would typically call a server endpoint to verify the transaction
+      // For now, we'll simulate verification
+      console.log(`Verifying TON payment for order ${orderId}, tx: ${transactionHash}`);
+
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error verifying TON payment:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Verification failed' };
+    }
+  }
+
+  /**
+   * Update order payment status
+   */
+  async updateOrderPayment(orderId: string, transactionHash: string): Promise<void> {
+    try {
+      // This would typically call a server endpoint to update the order
+      console.log(`Updating order ${orderId} with tx hash: ${transactionHash}`);
+
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('Error updating order payment:', error);
+      throw error;
+    }
   }
 
   /**

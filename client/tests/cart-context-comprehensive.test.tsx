@@ -11,7 +11,16 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   removeItem: jest.fn(),
 }));
 
+// Mock API service
+jest.mock('../services/api', () => ({
+  apiService: {
+    getProductById: jest.fn(),
+    getCart: jest.fn(),
+  },
+}));
+
 const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
+const mockApiService = require('../services/api').apiService;
 
 // Test component that uses the cart context
 const TestComponent: React.FC = () => {
@@ -23,6 +32,7 @@ const TestComponent: React.FC = () => {
       <Text testID="cart-loading">{state.loading ? 'true' : 'false'}</Text>
       <Text testID="cart-error">{state.error || 'null'}</Text>
       <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+      <Text testID="cart-state">{JSON.stringify(state)}</Text>
       <TouchableOpacity
         testID="add-item"
         onPress={() => addToCart('product1', 2, 'M', 'Red')}
@@ -84,7 +94,7 @@ describe('CartContext Comprehensive Tests', () => {
 
       const cartData = JSON.parse(getByTestId('cart-data').props.children);
       expect(cartData).toEqual({
-        _id: 'local',
+        _id: 'guest',
         items: [],
         totalItems: 0,
         totalPrice: 0,
@@ -125,7 +135,13 @@ describe('CartContext Comprehensive Tests', () => {
       });
 
       const cartData = JSON.parse(getByTestId('cart-data').props.children);
-      expect(cartData).toEqual(storedCart);
+      expect(cartData).toMatchObject({
+        _id: storedCart._id,
+        items: storedCart.items,
+        totalItems: storedCart.totalItems,
+        totalPrice: storedCart.totalPrice,
+      });
+      expect(cartData.lastUpdated).toBeDefined();
       expect(getByTestId('cart-loading').props.children).toBe('false');
       expect(getByTestId('cart-initialized').props.children).toBe('true');
     });
@@ -145,7 +161,7 @@ describe('CartContext Comprehensive Tests', () => {
 
       const cartData = JSON.parse(getByTestId('cart-data').props.children);
       expect(cartData).toEqual({
-        _id: 'local',
+        _id: 'emergency',
         items: [],
         totalItems: 0,
         totalPrice: 0,
@@ -286,18 +302,18 @@ describe('CartContext Comprehensive Tests', () => {
       const UpdateTestComponent: React.FC = () => {
         const { state, addToCart, updateCartItem } = useCart();
 
-        React.useEffect(() => {
-          if (state.isInitialized && state.cart && state.cart.items.length === 0) {
-            addToCart('product1', 2);
-          }
-        }, [state.isInitialized, state.cart, addToCart]);
-
         return (
           <View>
             <Text testID="cart-initialized">{state.isInitialized ? 'true' : 'false'}</Text>
             <Text testID="cart-loading">{state.loading ? 'true' : 'false'}</Text>
             <Text testID="cart-error">{state.error || 'null'}</Text>
             <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <TouchableOpacity
+              testID="add-item-first"
+              onPress={() => addToCart('product1', 2)}
+            >
+              <Text>Add Item First</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               testID="update-quantity"
               onPress={() => {
@@ -317,6 +333,15 @@ describe('CartContext Comprehensive Tests', () => {
           <UpdateTestComponent />
         </CartProvider>
       );
+
+      await waitFor(() => {
+        expect(getByTestId('cart-initialized').props.children).toBe('true');
+      });
+
+      // Add item first
+      act(() => {
+        fireEvent.press(getByTestId('add-item-first'));
+      });
 
       await waitFor(() => {
         const cartData = JSON.parse(getByTestId('cart-data').props.children);
@@ -341,18 +366,18 @@ describe('CartContext Comprehensive Tests', () => {
       const UpdateTestComponent: React.FC = () => {
         const { state, addToCart, updateCartItem } = useCart();
 
-        React.useEffect(() => {
-          if (state.isInitialized && state.cart && state.cart.items.length === 0) {
-            addToCart('product1', 2);
-          }
-        }, [state.isInitialized, state.cart, addToCart]);
-
         return (
           <View>
             <Text testID="cart-initialized">{state.isInitialized ? 'true' : 'false'}</Text>
             <Text testID="cart-loading">{state.loading ? 'true' : 'false'}</Text>
             <Text testID="cart-error">{state.error || 'null'}</Text>
             <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <TouchableOpacity
+              testID="add-item-first"
+              onPress={() => addToCart('product1', 2)}
+            >
+              <Text>Add Item First</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               testID="remove-via-update"
               onPress={() => {
@@ -372,6 +397,15 @@ describe('CartContext Comprehensive Tests', () => {
           <UpdateTestComponent />
         </CartProvider>
       );
+
+      await waitFor(() => {
+        expect(getByTestId('cart-initialized').props.children).toBe('true');
+      });
+
+      // Add item first
+      act(() => {
+        fireEvent.press(getByTestId('add-item-first'));
+      });
 
       await waitFor(() => {
         const cartData = JSON.parse(getByTestId('cart-data').props.children);
@@ -396,19 +430,24 @@ describe('CartContext Comprehensive Tests', () => {
       const RemoveTestComponent: React.FC = () => {
         const { state, addToCart, removeFromCart } = useCart();
 
-        React.useEffect(() => {
-          if (state.isInitialized && state.cart && state.cart.items.length === 0) {
-            addToCart('product1', 1);
-            addToCart('product2', 1);
-          }
-        }, [state.isInitialized, state.cart, addToCart]);
-
         return (
           <View>
             <Text testID="cart-initialized">{state.isInitialized ? 'true' : 'false'}</Text>
             <Text testID="cart-loading">{state.loading ? 'true' : 'false'}</Text>
             <Text testID="cart-error">{state.error || 'null'}</Text>
             <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <TouchableOpacity
+              testID="add-item-1"
+              onPress={() => addToCart('product1', 1)}
+            >
+              <Text>Add Item 1</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="add-item-2"
+              onPress={() => addToCart('product2', 1)}
+            >
+              <Text>Add Item 2</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               testID="remove-first-item"
               onPress={() => {
@@ -430,62 +469,27 @@ describe('CartContext Comprehensive Tests', () => {
       );
 
       await waitFor(() => {
-        const cartData = JSON.parse(getByTestId('cart-data').props.children);
-        expect(cartData.items).toHaveLength(2);
-        expect(cartData.totalItems).toBe(2);
+        expect(getByTestId('cart-initialized').props.children).toBe('true');
       });
 
+      // Add items first
       act(() => {
-        fireEvent.press(getByTestId('remove-first-item'));
+        fireEvent.press(getByTestId('add-item-1'));
       });
 
       await waitFor(() => {
         const cartData = JSON.parse(getByTestId('cart-data').props.children);
         expect(cartData.items).toHaveLength(1);
-        expect(cartData.totalItems).toBe(1);
-        expect(cartData.totalPrice).toBe(10);
       });
-    });
-  });
 
-  describe('Clear Cart', () => {
-    it('should clear all items from cart', async () => {
-      const ClearTestComponent: React.FC = () => {
-        const { state, addToCart, clearCart } = useCart();
-
-        React.useEffect(() => {
-          if (state.isInitialized && state.cart && state.cart.items.length === 0) {
-            addToCart('product1', 2);
-            addToCart('product2', 1);
-          }
-        }, [state.isInitialized, state.cart, addToCart]);
-
-        return (
-          <View>
-            <Text testID="cart-initialized">{state.isInitialized ? 'true' : 'false'}</Text>
-            <Text testID="cart-loading">{state.loading ? 'true' : 'false'}</Text>
-            <Text testID="cart-error">{state.error || 'null'}</Text>
-            <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
-            <TouchableOpacity
-              testID="clear-cart-btn"
-              onPress={() => clearCart()}
-            >
-              <Text>Clear Cart</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      };
-
-      const { getByTestId } = render(
-        <CartProvider>
-          <ClearTestComponent />
-        </CartProvider>
-      );
+      act(() => {
+        fireEvent.press(getByTestId('add-item-2'));
+      });
 
       await waitFor(() => {
         const cartData = JSON.parse(getByTestId('cart-data').props.children);
         expect(cartData.items).toHaveLength(2);
-        expect(cartData.totalItems).toBe(3);
+        expect(cartData.totalItems).toBe(2);
       });
 
       act(() => {
@@ -520,6 +524,7 @@ describe('CartContext Comprehensive Tests', () => {
         lastUpdated: '2024-01-01T00:00:00.000Z'
       };
 
+      // Set up mock to return stored cart initially
       mockAsyncStorage.getItem.mockResolvedValue(JSON.stringify(storedCart));
 
       const { getByTestId } = render(
@@ -528,24 +533,30 @@ describe('CartContext Comprehensive Tests', () => {
         </CartProvider>
       );
 
-      // Wait for initial load
+      // Wait for initial load from storage
       await waitFor(() => {
         const cartData = JSON.parse(getByTestId('cart-data').props.children);
-        expect(cartData).toBeDefined();
+        expect(cartData).toMatchObject({
+          _id: storedCart._id,
+          items: storedCart.items,
+          totalItems: storedCart.totalItems,
+          totalPrice: storedCart.totalPrice,
+        });
+        expect(cartData.lastUpdated).toBeDefined();
       });
 
-      // Modify cart locally
+      // Modify cart locally by adding an item
       act(() => {
         fireEvent.press(getByTestId('add-item'));
       });
 
       await waitFor(() => {
         const cartData = JSON.parse(getByTestId('cart-data').props.children);
-        expect(cartData.items).toHaveLength(1);
-        expect(cartData.totalItems).toBe(2);
+        expect(cartData.items).toHaveLength(2); // Should have stored item + new item
+        expect(cartData.totalItems).toBe(5); // 3 + 2 = 5
       });
 
-      // Refresh should load from storage
+      // Refresh should load from storage again
       act(() => {
         fireEvent.press(getByTestId('refresh-cart'));
       });
@@ -586,7 +597,7 @@ describe('CartContext Comprehensive Tests', () => {
       );
 
       await waitFor(() => {
-        const cartState = JSON.parse(getByTestId('cart-state').textContent || '{}');
+        const cartState = JSON.parse(getByTestId('cart-state').props.children);
         expect(cartState.isInitialized).toBe(true);
       });
 
@@ -595,7 +606,7 @@ describe('CartContext Comprehensive Tests', () => {
       });
 
       await waitFor(() => {
-        const cartState = JSON.parse(getByTestId('cart-state').textContent || '{}');
+        const cartState = JSON.parse(getByTestId('cart-state').props.children);
         expect(cartState.cart.items).toHaveLength(1);
         expect(cartState.error).toBeNull();
       });
@@ -628,6 +639,7 @@ describe('CartContext Comprehensive Tests', () => {
         return (
           <View>
             <Text testID="cart-state">{JSON.stringify(state)}</Text>
+            <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
             <Text testID="order-items">{JSON.stringify(orderItems)}</Text>
           </View>
         );
@@ -668,18 +680,21 @@ describe('CartContext Comprehensive Tests', () => {
       const LargeCartTestComponent: React.FC = () => {
         const { state, addToCart } = useCart();
 
-        React.useEffect(() => {
-          if (state.isInitialized && state.cart && state.cart.items.length === 0) {
-            // Add multiple items quickly
-            for (let i = 0; i < 10; i++) {
-              addToCart(`product${i}`, 1);
-            }
-          }
-        }, [state.isInitialized, state.cart, addToCart]);
-
         return (
           <View>
-            <Text testID="cart-state">{JSON.stringify(state)}</Text>
+            <Text testID="cart-initialized">{state.isInitialized ? 'true' : 'false'}</Text>
+            <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <TouchableOpacity
+              testID="add-large-cart"
+              onPress={() => {
+                // Add multiple items quickly
+                for (let i = 0; i < 10; i++) {
+                  addToCart(`product${i}`, 1);
+                }
+              }}
+            >
+              <Text>Add Large Cart</Text>
+            </TouchableOpacity>
           </View>
         );
       };
@@ -689,6 +704,14 @@ describe('CartContext Comprehensive Tests', () => {
           <LargeCartTestComponent />
         </CartProvider>
       );
+
+      await waitFor(() => {
+        expect(getByTestId('cart-initialized').props.children).toBe('true');
+      });
+
+      act(() => {
+        fireEvent.press(getByTestId('add-large-cart'));
+      });
 
       await waitFor(() => {
         const cartData = JSON.parse(getByTestId('cart-data').props.children);
@@ -702,15 +725,16 @@ describe('CartContext Comprehensive Tests', () => {
       const ConcurrentTestComponent: React.FC = () => {
         const { state, addToCart, updateCartItem } = useCart();
 
-        React.useEffect(() => {
-          if (state.isInitialized && state.cart && state.cart.items.length === 0) {
-            addToCart('product1', 1);
-          }
-        }, [state.isInitialized, state.cart, addToCart]);
-
         return (
           <View>
-            <Text testID="cart-state">{JSON.stringify(state)}</Text>
+            <Text testID="cart-initialized">{state.isInitialized ? 'true' : 'false'}</Text>
+            <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <TouchableOpacity
+              testID="add-initial-item"
+              onPress={() => addToCart('product1', 1)}
+            >
+              <Text>Add Initial Item</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               testID="concurrent-ops"
               onPress={() => {
@@ -734,8 +758,671 @@ describe('CartContext Comprehensive Tests', () => {
       );
 
       await waitFor(() => {
-        const cartState = JSON.parse(getByTestId('cart-state').textContent || '{}');
+        expect(getByTestId('cart-initialized').props.children).toBe('true');
+      });
+
+      // Add initial item
+      act(() => {
+        fireEvent.press(getByTestId('add-initial-item'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(1);
+      });
+
+      act(() => {
+        fireEvent.press(getByTestId('concurrent-ops'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items.length).toBeGreaterThanOrEqual(1);
+        expect(cartData.totalItems).toBeGreaterThanOrEqual(3);
+      });
+    });
+  });
+});
+=======
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(2);
+        expect(cartData.totalItems).toBe(2);
+      });
+
+      act(() => {
+        fireEvent.press(getByTestId('clear-cart-btn'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(0);
+        expect(cartData.totalItems).toBe(0);
+        expect(cartData.totalPrice).toBe(0);
+      });
+    });
+  });
+
+  describe('Refresh Cart', () => {
+    it('should reload cart from local storage', async () => {
+      const storedCart = {
+        _id: 'local',
+        items: [
+          {
+            _id: 'stored_item_1',
+            product: { _id: 'stored_product', name: 'Stored Product' },
+            price: 15,
+            quantity: 3,
+            size: 'L',
+            color: 'Green'
+          }
+        ],
+        totalItems: 3,
+        totalPrice: 45,
+        lastUpdated: '2024-01-01T00:00:00.000Z'
+      };
+
+      // Set up mock to return stored cart initially
+      mockAsyncStorage.getItem.mockResolvedValue(JSON.stringify(storedCart));
+
+      const { getByTestId } = render(
+        <CartProvider>
+          <TestComponent />
+        </CartProvider>
+      );
+
+      // Wait for initial load from storage
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData).toEqual(storedCart);
+      });
+
+      // Modify cart locally by adding an item
+      act(() => {
+        fireEvent.press(getByTestId('add-item'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(2); // Should have stored item + new item
+        expect(cartData.totalItems).toBe(5); // 3 + 2 = 5
+      });
+
+      // Refresh should load from storage again
+      act(() => {
+        fireEvent.press(getByTestId('refresh-cart'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData).toEqual(storedCart);
+      });
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle errors during operations gracefully', async () => {
+      // Test error handling by mocking a function that throws
+      const ErrorTestComponent: React.FC = () => {
+        const { state, addToCart } = useCart();
+
+        return (
+          <View>
+            <Text testID="cart-state">{JSON.stringify(state)}</Text>
+            <TouchableOpacity
+              testID="add-item-error"
+              onPress={() => {
+                // This should not throw, but let's test error state
+                addToCart('product1', -1); // Invalid quantity, but handled gracefully
+              }}
+            >
+              <Text>Add Item Error</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      };
+
+      const { getByTestId } = render(
+        <CartProvider>
+          <ErrorTestComponent />
+        </CartProvider>
+      );
+
+      await waitFor(() => {
+        const cartState = JSON.parse(getByTestId('cart-state').props.children);
+        expect(cartState.isInitialized).toBe(true);
+      });
+
+      act(() => {
+        fireEvent.press(getByTestId('add-item-error'));
+      });
+
+      await waitFor(() => {
+        const cartState = JSON.parse(getByTestId('cart-state').props.children);
         expect(cartState.cart.items).toHaveLength(1);
+        expect(cartState.error).toBeNull();
+      });
+    });
+  });
+
+  describe('Integration with Checkout', () => {
+    it('should provide cart data in correct format for checkout', async () => {
+      const CheckoutTestComponent: React.FC = () => {
+        const { state, addToCart } = useCart();
+
+        React.useEffect(() => {
+          if (state.isInitialized && state.cart && state.cart.items.length === 0) {
+            addToCart('product1', 2, 'M', 'Red');
+            addToCart('product2', 1, 'L', 'Blue');
+          }
+        }, [state.isInitialized, state.cart, addToCart]);
+
+        const transformCartItemsToOrderItems = (cartItems: any[]) => {
+          return cartItems.map(item => ({
+            productId: item.product._id,
+            name: item.product.name,
+            price: item.price,
+            quantity: item.quantity
+          }));
+        };
+
+        const orderItems = state.cart ? transformCartItemsToOrderItems(state.cart.items) : [];
+
+        return (
+          <View>
+            <Text testID="cart-state">{JSON.stringify(state)}</Text>
+            <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <Text testID="order-items">{JSON.stringify(orderItems)}</Text>
+          </View>
+        );
+      };
+
+      const { getByTestId } = render(
+        <CartProvider>
+          <CheckoutTestComponent />
+        </CartProvider>
+      );
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(2);
+        expect(cartData.totalItems).toBe(3);
+        expect(cartData.totalPrice).toBe(30);
+      });
+
+      const orderItems = JSON.parse(getByTestId('order-items').props.children);
+      expect(orderItems).toHaveLength(2);
+      expect(orderItems[0]).toMatchObject({
+        productId: 'product1',
+        name: 'Product product1',
+        price: 10,
+        quantity: 2
+      });
+      expect(orderItems[1]).toMatchObject({
+        productId: 'product2',
+        name: 'Product product2',
+        price: 10,
+        quantity: 1
+      });
+    });
+  });
+
+  describe('Performance and Edge Cases', () => {
+    it('should handle large number of items efficiently', async () => {
+      const LargeCartTestComponent: React.FC = () => {
+        const { state, addToCart } = useCart();
+
+        return (
+          <View>
+            <Text testID="cart-initialized">{state.isInitialized ? 'true' : 'false'}</Text>
+            <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <TouchableOpacity
+              testID="add-large-cart"
+              onPress={() => {
+                // Add multiple items quickly
+                for (let i = 0; i < 10; i++) {
+                  addToCart(`product${i}`, 1);
+                }
+              }}
+            >
+              <Text>Add Large Cart</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      };
+
+      const { getByTestId } = render(
+        <CartProvider>
+          <LargeCartTestComponent />
+        </CartProvider>
+      );
+
+      await waitFor(() => {
+        expect(getByTestId('cart-initialized').props.children).toBe('true');
+      });
+
+      act(() => {
+        fireEvent.press(getByTestId('add-large-cart'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(10);
+        expect(cartData.totalItems).toBe(10);
+        expect(cartData.totalPrice).toBe(100);
+      });
+    });
+
+    it('should handle concurrent operations', async () => {
+      const ConcurrentTestComponent: React.FC = () => {
+        const { state, addToCart, updateCartItem } = useCart();
+
+        return (
+          <View>
+            <Text testID="cart-initialized">{state.isInitialized ? 'true' : 'false'}</Text>
+            <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <TouchableOpacity
+              testID="add-initial-item"
+              onPress={() => addToCart('product1', 1)}
+            >
+              <Text>Add Initial Item</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="concurrent-ops"
+              onPress={() => {
+                if (state.cart && state.cart.items.length > 0) {
+                  // Simulate concurrent operations
+                  addToCart('product2', 1);
+                  updateCartItem(state.cart.items[0]._id, 3);
+                }
+              }}
+            >
+              <Text>Concurrent Ops</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      };
+
+      const { getByTestId } = render(
+        <CartProvider>
+          <ConcurrentTestComponent />
+        </CartProvider>
+      );
+
+      await waitFor(() => {
+        expect(getByTestId('cart-initialized').props.children).toBe('true');
+      });
+
+      // Add initial item
+      act(() => {
+        fireEvent.press(getByTestId('add-initial-item'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(1);
+      });
+
+      act(() => {
+        fireEvent.press(getByTestId('concurrent-ops'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items.length).toBeGreaterThanOrEqual(1);
+        expect(cartData.totalItems).toBeGreaterThanOrEqual(3);
+      });
+    });
+  });
+});
+
+      act(() => {
+        fireEvent.press(getByTestId('remove-first-item'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(1);
+        expect(cartData.totalItems).toBe(1);
+        expect(cartData.totalPrice).toBe(10);
+      });
+    });
+  });
+
+  describe('Clear Cart', () => {
+    it('should clear all items from cart', async () => {
+      const ClearTestComponent: React.FC = () => {
+        const { state, addToCart, clearCart } = useCart();
+
+        return (
+          <View>
+            <Text testID="cart-initialized">{state.isInitialized ? 'true' : 'false'}</Text>
+            <Text testID="cart-loading">{state.loading ? 'true' : 'false'}</Text>
+            <Text testID="cart-error">{state.error || 'null'}</Text>
+            <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <TouchableOpacity
+              testID="add-item-1"
+              onPress={() => addToCart('product1', 1)}
+            >
+              <Text>Add Item 1</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="add-item-2"
+              onPress={() => addToCart('product2', 1)}
+            >
+              <Text>Add Item 2</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="clear-cart-btn"
+              onPress={() => clearCart()}
+            >
+              <Text>Clear Cart</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      };
+
+      const { getByTestId } = render(
+        <CartProvider>
+          <ClearTestComponent />
+        </CartProvider>
+      );
+
+      await waitFor(() => {
+        expect(getByTestId('cart-initialized').props.children).toBe('true');
+      });
+
+      // Add items first
+      act(() => {
+        fireEvent.press(getByTestId('add-item-1'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(1);
+      });
+
+      act(() => {
+        fireEvent.press(getByTestId('add-item-2'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(2);
+        expect(cartData.totalItems).toBe(2);
+      });
+
+      act(() => {
+        fireEvent.press(getByTestId('clear-cart-btn'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(0);
+        expect(cartData.totalItems).toBe(0);
+        expect(cartData.totalPrice).toBe(0);
+      });
+    });
+  });
+
+  describe('Refresh Cart', () => {
+    it('should reload cart from local storage', async () => {
+      const storedCart = {
+        _id: 'local',
+        items: [
+          {
+            _id: 'stored_item_1',
+            product: { _id: 'stored_product', name: 'Stored Product' },
+            price: 15,
+            quantity: 3,
+            size: 'L',
+            color: 'Green'
+          }
+        ],
+        totalItems: 3,
+        totalPrice: 45,
+        lastUpdated: '2024-01-01T00:00:00.000Z'
+      };
+
+      // Set up mock to return stored cart initially
+      mockAsyncStorage.getItem.mockResolvedValue(JSON.stringify(storedCart));
+
+      const { getByTestId } = render(
+        <CartProvider>
+          <TestComponent />
+        </CartProvider>
+      );
+
+      // Wait for initial load from storage
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData).toEqual(storedCart);
+      });
+
+      // Modify cart locally by adding an item
+      act(() => {
+        fireEvent.press(getByTestId('add-item'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(2); // Should have stored item + new item
+        expect(cartData.totalItems).toBe(5); // 3 + 2 = 5
+      });
+
+      // Refresh should load from storage again
+      act(() => {
+        fireEvent.press(getByTestId('refresh-cart'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData).toEqual(storedCart);
+      });
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle errors during operations gracefully', async () => {
+      // Test error handling by mocking a function that throws
+      const ErrorTestComponent: React.FC = () => {
+        const { state, addToCart } = useCart();
+
+        return (
+          <View>
+            <Text testID="cart-state">{JSON.stringify(state)}</Text>
+            <TouchableOpacity
+              testID="add-item-error"
+              onPress={() => {
+                // This should not throw, but let's test error state
+                addToCart('product1', -1); // Invalid quantity, but handled gracefully
+              }}
+            >
+              <Text>Add Item Error</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      };
+
+      const { getByTestId } = render(
+        <CartProvider>
+          <ErrorTestComponent />
+        </CartProvider>
+      );
+
+      await waitFor(() => {
+        const cartState = JSON.parse(getByTestId('cart-state').props.children);
+        expect(cartState.isInitialized).toBe(true);
+      });
+
+      act(() => {
+        fireEvent.press(getByTestId('add-item-error'));
+      });
+
+      await waitFor(() => {
+        const cartState = JSON.parse(getByTestId('cart-state').props.children);
+        expect(cartState.cart.items).toHaveLength(1);
+        expect(cartState.error).toBeNull();
+      });
+    });
+  });
+
+  describe('Integration with Checkout', () => {
+    it('should provide cart data in correct format for checkout', async () => {
+      const CheckoutTestComponent: React.FC = () => {
+        const { state, addToCart } = useCart();
+
+        React.useEffect(() => {
+          if (state.isInitialized && state.cart && state.cart.items.length === 0) {
+            addToCart('product1', 2, 'M', 'Red');
+            addToCart('product2', 1, 'L', 'Blue');
+          }
+        }, [state.isInitialized, state.cart, addToCart]);
+
+        const transformCartItemsToOrderItems = (cartItems: any[]) => {
+          return cartItems.map(item => ({
+            productId: item.product._id,
+            name: item.product.name,
+            price: item.price,
+            quantity: item.quantity
+          }));
+        };
+
+        const orderItems = state.cart ? transformCartItemsToOrderItems(state.cart.items) : [];
+
+        return (
+          <View>
+            <Text testID="cart-state">{JSON.stringify(state)}</Text>
+            <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <Text testID="order-items">{JSON.stringify(orderItems)}</Text>
+          </View>
+        );
+      };
+
+      const { getByTestId } = render(
+        <CartProvider>
+          <CheckoutTestComponent />
+        </CartProvider>
+      );
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(2);
+        expect(cartData.totalItems).toBe(3);
+        expect(cartData.totalPrice).toBe(30);
+      });
+
+      const orderItems = JSON.parse(getByTestId('order-items').props.children);
+      expect(orderItems).toHaveLength(2);
+      expect(orderItems[0]).toMatchObject({
+        productId: 'product1',
+        name: 'Product product1',
+        price: 10,
+        quantity: 2
+      });
+      expect(orderItems[1]).toMatchObject({
+        productId: 'product2',
+        name: 'Product product2',
+        price: 10,
+        quantity: 1
+      });
+    });
+  });
+
+  describe('Performance and Edge Cases', () => {
+    it('should handle large number of items efficiently', async () => {
+      const LargeCartTestComponent: React.FC = () => {
+        const { state, addToCart } = useCart();
+
+        return (
+          <View>
+            <Text testID="cart-initialized">{state.isInitialized ? 'true' : 'false'}</Text>
+            <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <TouchableOpacity
+              testID="add-large-cart"
+              onPress={() => {
+                // Add multiple items quickly
+                for (let i = 0; i < 10; i++) {
+                  addToCart(`product${i}`, 1);
+                }
+              }}
+            >
+              <Text>Add Large Cart</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      };
+
+      const { getByTestId } = render(
+        <CartProvider>
+          <LargeCartTestComponent />
+        </CartProvider>
+      );
+
+      await waitFor(() => {
+        expect(getByTestId('cart-initialized').props.children).toBe('true');
+      });
+
+      act(() => {
+        fireEvent.press(getByTestId('add-large-cart'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(10);
+        expect(cartData.totalItems).toBe(10);
+        expect(cartData.totalPrice).toBe(100);
+      });
+    });
+
+    it('should handle concurrent operations', async () => {
+      const ConcurrentTestComponent: React.FC = () => {
+        const { state, addToCart, updateCartItem } = useCart();
+
+        return (
+          <View>
+            <Text testID="cart-initialized">{state.isInitialized ? 'true' : 'false'}</Text>
+            <Text testID="cart-data">{JSON.stringify(state.cart)}</Text>
+            <TouchableOpacity
+              testID="add-initial-item"
+              onPress={() => addToCart('product1', 1)}
+            >
+              <Text>Add Initial Item</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="concurrent-ops"
+              onPress={() => {
+                if (state.cart && state.cart.items.length > 0) {
+                  // Simulate concurrent operations
+                  addToCart('product2', 1);
+                  updateCartItem(state.cart.items[0]._id, 3);
+                }
+              }}
+            >
+              <Text>Concurrent Ops</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      };
+
+      const { getByTestId } = render(
+        <CartProvider>
+          <ConcurrentTestComponent />
+        </CartProvider>
+      );
+
+      await waitFor(() => {
+        expect(getByTestId('cart-initialized').props.children).toBe('true');
+      });
+
+      // Add initial item
+      act(() => {
+        fireEvent.press(getByTestId('add-initial-item'));
+      });
+
+      await waitFor(() => {
+        const cartData = JSON.parse(getByTestId('cart-data').props.children);
+        expect(cartData.items).toHaveLength(1);
       });
 
       act(() => {

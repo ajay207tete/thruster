@@ -36,7 +36,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({ cartItems, totalAmou
         scrollEnabled={false}
       />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#00ff00' }}>
-        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Total:</Text>
+        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Subtotal:</Text>
         <Text style={{ color: '#00ff00', fontSize: 18, fontWeight: 'bold' }}>${totalAmount.toFixed(2)}</Text>
       </View>
     </View>

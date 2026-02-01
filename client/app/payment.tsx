@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Alert, Image, FlatList, Dimensions } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, ScrollView, Alert, Image, FlatList, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { ThemedText } from '@/components/ThemedText';
-import { paymentService } from '../services/paymentService';
-import { tonService } from '../services/tonService-updated';
+import { useCart } from '@/contexts/CartContext';
+import { apiService } from '@/services/api';
+import Header from '@/components/Header';
 
 export default function PaymentScreen() {
   const router = useRouter();
   const { orderData: orderDataParam } = useLocalSearchParams();
+  const { clearCart } = useCart();
 
   const [orderData, setOrderData] = useState<any>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'nowpayments' | 'ton' | null>(null);
@@ -43,8 +45,8 @@ export default function PaymentScreen() {
 
     try {
       if (selectedPaymentMethod === 'nowpayments') {
-        // Handle NowPayments
-        const response = await fetch('/api/create-invoice', {
+        // Create NowPayments invoice
+        const response = await fetch(`${process.env.EXPO_PUBLIC_API_BASE_URL}/api/create-invoice`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -66,21 +68,34 @@ export default function PaymentScreen() {
           Alert.alert('Error', 'Failed to create payment invoice');
         }
       } else if (selectedPaymentMethod === 'ton') {
-        // Handle TON native payment
-        const result = await tonService.sendPayment(
-          `order_${Date.now()}`,
-          orderData.totalAmount
-        );
+        // Create order via backend
+        const orderPayload = {
+          userWalletAddress: 'guest', // For now, using guest
+          products: orderData.cartItems.map((item: any) => ({
+            productId: item.product._id,
+            title: item.product.name,
+            price: item.price,
+            qty: item.quantity,
+          })),
+          shippingAddress: orderData.shippingDetails,
+          totalAmount: orderData.totalAmount,
+          paymentMethod: 'TON',
+        };
 
-        if (result.success) {
-          Alert.alert('Success', 'Payment sent successfully!', [
+        const orderResponse = await apiService.createOrder(orderPayload);
+
+        if (orderResponse.success) {
+          // Clear cart after successful order
+          await clearCart();
+
+          Alert.alert('Success', 'Order placed successfully!', [
             {
               text: 'OK',
-              onPress: () => router.push('/my-order'),
+              onPress: () => router.push('/order-success'),
             },
           ]);
         } else {
-          Alert.alert('Error', result.error || 'Payment failed');
+          Alert.alert('Error', 'Failed to create order');
         }
       }
     } catch (error) {

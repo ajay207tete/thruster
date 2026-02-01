@@ -89,7 +89,7 @@ describe('Checkout Integration Tests', () => {
       expect(getAllByText('$449.96')).toHaveLength(2); // Subtotal and Total
 
       // Click the Pay with TON button
-      const paymentButton = getByText('💎 Pay with TON Smart Contract');
+      const paymentButton = getByText('Pay with TON (Native)');
       fireEvent.press(paymentButton);
 
       // Verify payment service was called
@@ -111,7 +111,7 @@ describe('Checkout Integration Tests', () => {
       );
 
       // Click the payment button
-      const paymentButton = getByText('💎 Pay with TON Smart Contract');
+      const paymentButton = getByText('Pay with TON (Native)');
       fireEvent.press(paymentButton);
 
       // Wait for processing to complete
@@ -181,7 +181,7 @@ describe('Checkout Integration Tests', () => {
         expect(getByText('Cyberpunk T-Shirt')).toBeTruthy();
       });
 
-      const paymentButton = getByText('💎 Pay with TON Smart Contract');
+      const paymentButton = getByText('Pay with TON (Native)');
 
       // First payment attempt
       fireEvent.press(paymentButton);
@@ -206,7 +206,7 @@ describe('Checkout Integration Tests', () => {
       // Mock payment failure
       mockTonService.createOrder.mockRejectedValue(new Error('Payment failed'));
 
-      const paymentButton = getByText('💎 Pay with TON Smart Contract');
+      const paymentButton = getByText('Pay with TON (Native)');
       fireEvent.press(paymentButton);
 
       // Verify error handling

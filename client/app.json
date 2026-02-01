@@ -1,19 +1,17 @@
 {
   "expo": {
-    "name": "Cyberpunk App",
-    "slug": "cyberpunk-app",
+    "name": "Thruster App",
+    "slug": "thruster-app",
     "version": "1.0.0",
     "sdkVersion": "53.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "main": "index.js",
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png",
-      "name": "Cyberpunk App",
-      "shortName": "Cyberpunk",
+      "name": "Thruster App",
+      "shortName": "Thruster",
       "lang": "en",
       "scope": "/",
       "themeColor": "#000000",
@@ -23,18 +21,14 @@
       "startUrl": "/",
       "orientation": "portrait",
       "backgroundColor": "#000000",
-      "public": "./public",
-      "telegramWebApp": {
-        "url": "https://your-domain.com",
-        "scope": "all"
-      }
+      "public": "./public"
     },
     "extra": {
-      "tonManifestUrl": "https://chocolate-chemical-orangutan-457.mypinata.cloud/ipfs/bafkreib4t6hllayvqgy3lxo4ck7kunypktnqluhxpa7ozlxh46la6llbyq",
       "eas": {
         "projectId": "your-project-id"
       },
-      "EXPO_PUBLIC_API_BASE_URL": "http://localhost:5002/api"
+      "EXPO_PUBLIC_API_BASE_URL": "http://localhost:8888",
+      "EXPO_PUBLIC_TON_MANIFEST_URL": "https://thruster.netlify.app/tonconnect-manifest.json"
     },
     "plugins": [
       "expo-router"
