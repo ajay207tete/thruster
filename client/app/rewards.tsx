@@ -19,8 +19,13 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { tonService } from '@/services/tonService-updated';
 import { RewardService, Task, UserPoints } from '@/services/rewardService';
+import { apiService } from '@/services/api';
 import Header from '@/components/Header';
 import TaskCard from '@/components/TaskCard';
+
+const API_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  "http://localhost:5007";
 
 export default function RewardsScreen() {
   const rewardService = new RewardService();
@@ -30,12 +35,17 @@ export default function RewardsScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [pointsAnimation] = useState(new Animated.Value(1));
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   const [userPoints, setUserPoints] = useState<UserPoints | null>(null);
-  const [tasksLoading, setTasksLoading] = useState<boolean>(false);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     checkWalletConnection();
+  }, []);
+
+  useEffect(() => {
+    fetchTasks();
   }, []);
 
   const checkWalletConnection = async () => {
@@ -74,15 +84,13 @@ export default function RewardsScreen() {
 
       setWalletAddress(address);
 
-      // Load user points and tasks in parallel
-      const [userPointsResponse, tasksResponse] = await Promise.all([
-        rewardService.getUserPoints(address),
-        rewardService.getTasks()
-      ]);
-
+      // Load user points
+      const userPointsResponse = await rewardService.getUserPoints(address);
       setUserPoints(userPointsResponse);
       setTotalPoints(userPointsResponse.points);
-      setTasks(tasksResponse);
+
+      // Fetch tasks
+      await fetchTasks();
 
       // Load rewards history for backward compatibility
       const rewardsResponse = await rewardService.getRewards(address);
@@ -94,6 +102,37 @@ export default function RewardsScreen() {
       Alert.alert('Error', 'Failed to load rewards data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTasks = async () => {
+    try {
+      setTasksLoading(true);
+      setError(null);
+
+      console.log("Fetching tasks from API...");
+      const data = await apiService.getTasks();
+
+      console.log("Tasks API raw:", data);
+
+      const rawTasks =
+        Array.isArray(data) ? data :
+        data?.tasks ? data.tasks :
+        data?.data ? data.data :
+        data?.result ? data.result :
+        [];
+
+      const normalizedTasks = rawTasks.map((task: any, index: number) => ({
+        ...task,
+        id: task._id || task.id || task.taskId || `task-${index}`
+      }));
+
+      setTasks([...normalizedTasks]);
+    } catch (err) {
+      console.error('Error fetching tasks:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load tasks');
+    } finally {
+      setTasksLoading(false);
     }
   };
 
@@ -118,8 +157,9 @@ export default function RewardsScreen() {
       const response = await rewardService.claimReward(walletAddress, taskId);
       if (response.success) {
         animatePoints();
-        setTotalPoints(prev => prev + response.pointsAdded);
-        setUserPoints(prev => prev ? { ...prev, points: prev.points + response.pointsAdded, completedTasks: [...prev.completedTasks, taskId] } : null);
+        const pointsAdded = response.pointsAdded || 0;
+        setTotalPoints(prev => prev + pointsAdded);
+        setUserPoints(prev => prev ? { ...prev, points: prev.points + pointsAdded, completedTasks: [...prev.completedTasks, taskId] } : null);
         Alert.alert('Success', response.message || 'Reward claimed successfully!');
       } else {
         Alert.alert('Error', response.error || 'Failed to claim reward');
@@ -206,16 +246,25 @@ export default function RewardsScreen() {
         {/* Tasks Container */}
         <View style={styles.tasksContainer}>
           <ThemedText style={styles.tasksTitle}>Complete Tasks to Earn Points</ThemedText>
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.taskId}
-              task={task}
-              isCompleted={userPoints?.completedTasks.includes(task.taskId) || false}
-              isClaiming={claiming === task.taskId}
-              onClaim={handleClaimReward}
-              onShare={task.taskId === 'share_app' ? handleShare : undefined}
-            />
-          ))}
+          {tasksLoading && <ThemedText style={styles.loadingText}>Loading tasks...</ThemedText>}
+          {!tasksLoading && error && <ThemedText style={styles.errorText}>Error: {error}</ThemedText>}
+          {!tasksLoading && tasks.length === 0 && !error && (
+            <View style={styles.emptyState}>
+              <Ionicons name="trophy" size={60} color="#666666" />
+              <ThemedText style={styles.emptyText}>No tasks available</ThemedText>
+            </View>
+          )}
+          {tasks.length > 0 &&
+            tasks.map(task => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                isCompleted={userPoints?.completedTasks.includes(task.id) || false}
+                isClaiming={claiming === task.id}
+                onClaim={handleClaimReward}
+                onShare={task.id === 'share_app' ? handleShare : undefined}
+              />
+            ))}
         </View>
 
         {/* Rewards History */}
@@ -464,5 +513,14 @@ const styles = StyleSheet.create({
     textShadowColor: '#ff0080',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 15,
+  },
+  errorText: {
+    color: '#ff0000',
+    fontSize: isMobile ? 14 : 16,
+    fontFamily: 'monospace',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    textAlign: 'center',
+    marginBottom: 10,
   },
 });

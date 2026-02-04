@@ -51,6 +51,9 @@ export const useTonContract = (customConfig?: Partial<TonContractConfig>): UseTo
     try {
       const result = await tonService.createOrder(orderData);
       return result;
+    } catch (error) {
+      console.error('Error creating order:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     } finally {
       setIsLoading(false);
     }
@@ -62,6 +65,9 @@ export const useTonContract = (customConfig?: Partial<TonContractConfig>): UseTo
     try {
       const result = await tonService.checkPaymentStatus(orderId);
       return result;
+    } catch (error) {
+      console.error('Error checking payment status:', error);
+      return { isPaid: false, transactionHash: null };
     } finally {
       setIsLoading(false);
     }
@@ -73,6 +79,9 @@ export const useTonContract = (customConfig?: Partial<TonContractConfig>): UseTo
     try {
       const orders = await tonService.getAllOrders();
       return orders;
+    } catch (error) {
+      console.error('Error getting all orders:', error);
+      return [];
     } finally {
       setIsLoading(false);
     }
@@ -84,6 +93,9 @@ export const useTonContract = (customConfig?: Partial<TonContractConfig>): UseTo
     try {
       const result = await tonService.sendPayment(amount, orderId);
       return result;
+    } catch (error) {
+      console.error('Error sending payment:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     } finally {
       setIsLoading(false);
     }
@@ -114,6 +126,9 @@ export const useTonContract = (customConfig?: Partial<TonContractConfig>): UseTo
         await refreshBalance();
       }
       return result;
+    } catch (error) {
+      console.error('Error withdrawing funds:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     } finally {
       setIsLoading(false);
     }
@@ -125,6 +140,9 @@ export const useTonContract = (customConfig?: Partial<TonContractConfig>): UseTo
     try {
       const balance = await tonService.getContractBalance();
       setContractBalance(balance);
+    } catch (error) {
+      console.error('Error refreshing balance:', error);
+      setContractBalance('0');
     } finally {
       setIsLoading(false);
     }
@@ -176,6 +194,9 @@ export const useTonOrder = (orderId: number | null) => {
     try {
       const status = await tonService.checkPaymentStatus(orderId);
       setPaymentStatus(status);
+    } catch (error) {
+      console.error('Error checking payment status in useTonOrder:', error);
+      setPaymentStatus({ isPaid: false, transactionHash: null });
     } finally {
       setIsChecking(false);
     }
@@ -206,6 +227,9 @@ export const useTonBalance = () => {
     try {
       const newBalance = await tonService.getContractBalance();
       setBalance(newBalance);
+    } catch (error) {
+      console.error('Error refreshing balance in useTonBalance:', error);
+      setBalance('0');
     } finally {
       setIsRefreshing(false);
     }

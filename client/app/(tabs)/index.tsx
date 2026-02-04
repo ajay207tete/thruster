@@ -1,77 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, FlatList, Image, Dimensions, Text, Modal, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Text, Modal, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import TonConnectButtonComponent from '../../components/TonConnectButton';
 import MenuDropdown from '../../components/MenuDropdown';
-import { ThemedText } from '@/components/ThemedText';
-import { apiService } from '@/services/api';
 import { tonService } from '@/services/tonService-updated';
 
-interface Product {
-  _id: string;
-  name: string;
-  description: string;
-  price: number;
-  image: string | null;
-  sizes: string[];
-  colors: string[];
-  category: string;
-  stock: number;
-}
-
 export default function Index() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        console.log('Fetching products from API...');
-        const data = await apiService.getProducts();
-        console.log('Products fetched successfully:', data?.length || 0);
-        setProducts(data.slice(0, 4)); // Show first 4 products as featured
-      } catch (error) {
-        console.error('Failed to fetch products:', error);
-        setError('Failed to load featured products. Please check your connection.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, []);
-
-  const handleViewProduct = (product: Product) => {
-    router.push({
-      pathname: '/product-detail',
-      params: { id: product._id },
-    });
-  };
-
-  const renderProduct = ({ item }: { item: Product }) => (
-    <TouchableOpacity onPress={() => handleViewProduct(item)} style={styles.cyberCard}>
-      <View style={styles.cardGlow}>
-        <View style={styles.cardBorder}>
-          {item.image ? (
-            <Image source={{ uri: item.image }} style={styles.cyberImage} resizeMode="contain" />
-          ) : (
-            <View style={styles.placeholderImage}>
-              <Ionicons name="shirt" size={50} color="#ff0080" />
-            </View>
-          )}
-          <View style={styles.cyberInfo}>
-            <Text style={styles.cyberName}>{item.name}</Text>
-            <Text style={styles.cyberPrice}>${item.price}</Text>
-          </View>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
 
   return (
     <View style={styles.cyberContainer}>
@@ -168,20 +104,7 @@ export default function Index() {
           </TouchableOpacity>
         </View>
 
-        {/* Featured Products with Cyberpunk Cards */}
-        {products.length > 0 && (
-          <View style={styles.cyberSection}>
-            <Text style={styles.cyberSectionTitle}>FEATURED PRODUCTS</Text>
-            <FlatList
-              data={products}
-              keyExtractor={(item) => item._id}
-              renderItem={renderProduct}
-              numColumns={2}
-              contentContainerStyle={styles.cyberGrid}
-              showsVerticalScrollIndicator={false}
-            />
-          </View>
-        )}
+
       </ScrollView>
 
       {/* Wallet Connection Modal */}

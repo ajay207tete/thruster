@@ -1,80 +1,14 @@
-[dev]
-  # Development server settings
-  command = "node server.js"
-  port = 8888
-  publish = "."
-  functions = "netlify/functions"
-
 [build]
-  # Build command for the server
-  command = "npm run build"
-  # Directory to publish (functions will be in .netlify/functions)
-  publish = "dist"
-  # Functions directory
-  functions = "netlify/functions"
+command = "echo Backend ready"
+publish = "."
+
+[functions]
+directory = "netlify/functions"
+
+[[redirects]]
+from = "/api/*"
+to = "/.netlify/functions/server/:splat"
+status = 200
 
 [build.environment]
-  # Node version for functions
-  NODE_VERSION = "18"
-
-# Environment variables for functions
-[context.production.environment]
-  MONGODB_URI = "mongodb+srv://ajayte207_db_user:Ajayte207@cluster0.gohrt1h.mongodb.net/thruster?appName=Cluster0"
-  NODE_ENV = "production"
-  FRONTEND_URL = "https://thruster-three.vercel.app"
-
-[context.deploy-preview.environment]
-  MONGODB_URI = "mongodb+srv://ajayte207_db_user:Ajayte207@cluster0.gohrt1h.mongodb.net/thruster?appName=Cluster0"
-  NODE_ENV = "development"
-  FRONTEND_URL = "https://thruster-three.vercel.app"
-
-[context.branch-deploy.environment]
-  MONGODB_URI = "mongodb+srv://ajayte207_db_user:Ajayte207@cluster0.gohrt1h.mongodb.net/thruster?appName=Cluster0"
-  NODE_ENV = "development"
-  FRONTEND_URL = "https://thruster-three.vercel.app"
-
-# Function settings
-[functions]
-  # Directory for functions
-  directory = "netlify/functions"
-
-# Redirects for API routes (if needed)
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
-# Headers for CORS and security
-[[headers]]
-  for = "/.netlify/functions/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Headers = "Content-Type, Authorization"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-
-# Cache static assets
-[[headers]]
-  for = "/*.js"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000"
-
-[[headers]]
-  for = "/*.css"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000"
-
-# Security headers
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "DENY"
-    X-XSS-Protection = "1; mode=block"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-
-# SPA fallback for client-side routing
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  conditions = {Role = ["admin"]}
+NODE_VERSION = "18"

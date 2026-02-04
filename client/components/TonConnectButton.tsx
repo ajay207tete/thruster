@@ -57,9 +57,14 @@ export default function TonConnectButtonComponent() {
         console.log('Wallet already connected');
         return;
       }
+
+      // Log manifest URL for debugging
+      console.log('Opening wallet modal with manifest URL:', tonConnectUI.manifestUrl);
+
       await tonConnectUI.openModal();
     } catch (error) {
       console.error('Error opening wallet modal:', error);
+      // Don't throw - just log the error to prevent app crashes
     }
   };
 

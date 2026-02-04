@@ -1,5 +1,5 @@
 {
-  "url": "https://thruster.netlify.app",
-  "name": "Thruster DApp",
-  "iconUrl": "https://thruster.netlify.app/icon.png"
+  "url": "http://localhost:8081",
+  "name": "Thruster",
+  "iconUrl": "https://chocolate-chemical-orangutan-457.mypinata.cloud/ipfs/bafybeig2ke6iowzphw7cxexu5o64k73tlaoph7vtpi2tsccbkexfryl37m"
 }

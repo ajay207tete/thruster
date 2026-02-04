@@ -1,17 +1,11 @@
-# NowPayments Integration TODO
+# Fix Shop Page Products Visibility
 
-## Current Status
-- [x] Analyzed existing NowPayments integration
-- [x] Identified need to create order before payment
-
-## Tasks to Complete
-- [x] Modify checkout.tsx to create order before payment
-- [ ] Update payment.ts to handle order creation and invoice
-- [ ] Test payment flow end-to-end
-- [ ] Verify order creation and status updates
-
-## Implementation Steps
-1. Update checkout.tsx to create order with shipping details
-2. Modify payment.ts create-invoice to use order ID
-3. Ensure proper error handling and flow
-4. Test complete payment process
+## Tasks
+- [x] Remove redundant test fetch in fetchProducts
+- [x] Remove strict validation that blocks valid responses
+- [x] Simplify fetchProducts to detect response structure automatically
+- [x] Normalize products consistently (_id→id, name→title, imageUrl/image→image)
+- [x] Ensure setProducts always called with processed array
+- [x] Fix retry logic to reuse fetchProducts
+- [x] Ensure FlatList renders correctly with fallbacks
+- [x] Test that products are visible on Shop page

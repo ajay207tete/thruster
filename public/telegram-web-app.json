@@ -1,7 +1,7 @@
 {
-  "name": "Cyberpunk App",
-  "short_name": "Cyberpunk",
-  "description": "Cyberpunk themed e-commerce and travel app",
+  "name": "Thruster App",
+  "short_name": "Thruster",
+  "description": "blockchain based e-commerce build on TON",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

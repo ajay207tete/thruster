@@ -70,98 +70,76 @@ export default function ShopScreen() {
         setLoadingMore(true);
       }
       setError(null);
-      console.log(`Shop: Fetching products from backend API (page ${page})...`);
-      console.log('Shop: API base URL:', process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:5002/api');
 
+      console.log(`Shop: Fetching products from backend API (page ${page})...`);
       const data = await apiService.getProducts(page, 10); // 10 products per page
       console.log('Shop: Raw API response:', data);
-      console.log('Shop: Response type:', typeof data);
 
-      // Add response guard to prevent undefined.name errors
-      if (!Array.isArray(data) && !data.products) {
-        console.error('Shop: Invalid API response format - expected array or object with products property');
-        throw new Error('Invalid API response format');
-      }
+      // Detect response structure automatically
+      let productsArray: any[] = [];
+      let pagination = null;
 
-      // Check if response has the new pagination structure
-      if (data.products && Array.isArray(data.products)) {
-        console.log('Shop: Using paginated response format');
-        console.log('Shop: Products length:', data.products.length);
-        console.log('Shop: Pagination info:', data.pagination);
-
-        // Filter out undefined/null products and normalize product data from backend to match frontend interface
-        const processedProducts = data.products
-          .filter((product: any) => product && typeof product === 'object')
-          .map((product: any, index: number) => {
-            console.log(`Shop: Processing product ${index}:`, product);
-            return {
-              id: product._id || product.id || `product-${index}`,
-              title: product.name || 'Unnamed Product',
-              description: product.description || 'No description available',
-              price: product.price || 0,
-              image: product.imageUrl || null,
-              sizes: Array.isArray(product.sizes) ? product.sizes : [],
-              colors: Array.isArray(product.colors) ? product.colors : [],
-              category: product.category || 'General',
-              stock: product.stock || 0
-            };
-          });
-
-        console.log('Shop: Processed products array length:', processedProducts.length);
-
-        if (append) {
-          setProducts(prev => [...prev, ...processedProducts]);
+      if (Array.isArray(data)) {
+        // Direct array format: []
+        productsArray = data;
+        console.log('Shop: Detected direct array format, length:', productsArray.length);
+      } else if (data && typeof data === 'object') {
+        if (data.products && Array.isArray(data.products)) {
+          // Paginated format: { products: [], pagination: {...} }
+          productsArray = data.products;
+          pagination = data.pagination;
+          console.log('Shop: Detected paginated format, products length:', productsArray.length);
+        } else if (data.data && Array.isArray(data.data)) {
+          // Alternative format: { data: [] }
+          productsArray = data.data;
+          console.log('Shop: Detected data array format, length:', productsArray.length);
         } else {
-          setProducts(processedProducts);
+          console.warn('Shop: Unknown object format, treating as empty array');
+          productsArray = [];
         }
-
-        setCurrentPage(data.pagination.currentPage);
-        setHasNextPage(data.pagination.hasNextPage);
-        setTotalProducts(data.pagination.totalProducts);
-
-        console.log('Shop: Products set in state successfully - Products fetched → Products rendered');
-      } else if (Array.isArray(data)) {
-        // Fallback for old format (direct array)
-        console.log('Shop: Using legacy response format (direct array)');
-        console.log('Shop: Products length:', data.length);
-
-        if (data.length === 0) {
-          console.log('Shop: No products found in database');
-        } else {
-          console.log('Shop: First product sample:', data[0]);
-        }
-
-        // Filter out undefined/null products and normalize product data from backend to match frontend interface
-        const processedProducts = data
-          .filter((product: any) => product && typeof product === 'object')
-          .map((product: any, index: number) => {
-            console.log(`Shop: Processing product ${index}:`, product);
-            return {
-              id: product._id || product.id || `product-${index}`,
-              title: product.name || 'Unnamed Product',
-              description: product.description || 'No description available',
-              price: product.price || 0,
-              image: product.imageUrl || null,
-              sizes: Array.isArray(product.sizes) ? product.sizes : [],
-              colors: Array.isArray(product.colors) ? product.colors : [],
-              category: product.category || 'General',
-              stock: product.stock || 0
-            };
-          });
-
-        console.log('Shop: Processed products array length:', processedProducts.length);
-        console.log('Shop: Setting products in state...');
-        setProducts(processedProducts);
-        setCurrentPage(1);
-        setHasNextPage(false); // Assume no pagination in legacy mode
-        setTotalProducts(processedProducts.length);
-        console.log('Shop: Products set in state successfully - Products fetched → Products rendered');
       } else {
-        console.error('Shop: Invalid response format - expected array or paginated object, got:', data);
-        throw new Error('Invalid response format from API');
+        console.warn('Shop: Invalid response type, treating as empty array');
+        productsArray = [];
       }
+
+      // Normalize products to frontend interface
+      const processedProducts = productsArray
+        .filter((product: any) => product && typeof product === 'object')
+        .map((product: any, index: number) => ({
+          id: product._id || product.id || `product-${index}`,
+          title: product.name || 'Unnamed Product',
+          description: product.description || 'No description available',
+          price: product.price || 0,
+          image: product.imageUrl || product.image || null,
+          sizes: Array.isArray(product.sizes) ? product.sizes : [],
+          colors: Array.isArray(product.colors) ? product.colors : [],
+          category: product.category || 'General',
+          stock: product.stock || 0
+        }));
+
+      console.log('Shop: Processed products length:', processedProducts.length);
+
+      // Update state
+      if (append) {
+        setProducts(prev => [...prev, ...processedProducts]);
+      } else {
+        setProducts(processedProducts);
+      }
+
+      // Update pagination state
+      if (pagination) {
+        setCurrentPage(pagination.currentPage || page);
+        setHasNextPage(pagination.hasNextPage || false);
+        setTotalProducts(pagination.totalProducts || processedProducts.length);
+      } else {
+        setCurrentPage(page);
+        setHasNextPage(false);
+        setTotalProducts(processedProducts.length);
+      }
+
+      console.log('Shop: Products loaded successfully, count:', processedProducts.length);
     } catch (error) {
-      console.error('Shop: Failed to fetch backend products:', error);
+      console.error('Shop: Failed to fetch products:', error);
       setError('Failed to load products. Please try again.');
     } finally {
       setLoading(false);
@@ -362,41 +340,7 @@ export default function ShopScreen() {
           <View style={styles.errorState}>
             <Ionicons name="alert-circle" size={60} color="#ff0000" />
             <ThemedText style={styles.errorText}>{error}</ThemedText>
-            <TouchableOpacity style={styles.retryButton} onPress={() => {
-              setError(null);
-              setLoading(true);
-              // Re-fetch products
-              const fetchProducts = async () => {
-                try {
-                  console.log('Retrying to fetch products from backend API...');
-                  const data = await apiService.getProducts();
-                  console.log('Fetched products:', data);
-                  console.log('Number of products:', data.products.length);
-
-                  const processedProducts = data.products
-                    .filter((product: any) => product && typeof product === 'object')
-                    .map((product: any, index: number) => ({
-                      id: product._id || product.id || `product-${index}`,
-                      title: product.name || 'Unnamed Product',
-                      description: product.description || 'No description available',
-                      price: product.price || 0,
-                      image: product.imageUrl || null,
-                      sizes: Array.isArray(product.sizes) ? product.sizes : [],
-                      colors: Array.isArray(product.colors) ? product.colors : [],
-                      category: product.category || 'General',
-                      stock: product.stock || 0
-                    }));
-
-                  setProducts(processedProducts);
-                } catch (retryError) {
-                  console.error('Failed to retry fetching products:', retryError);
-                  setError('Failed to load products. Please try again.');
-                } finally {
-                  setLoading(false);
-                }
-              };
-              fetchProducts();
-            }}>
+            <TouchableOpacity style={styles.retryButton} onPress={() => fetchProducts()}>
               <ThemedText style={styles.retryText}>Retry</ThemedText>
             </TouchableOpacity>
           </View>

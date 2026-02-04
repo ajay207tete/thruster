@@ -1,3 +1,4 @@
+
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -20,7 +21,7 @@ console.log(`JWT_SECRET loaded: ${!!process.env.JWT_SECRET}`);
 console.log(`Server starting in ${process.env.NODE_ENV || 'development'} mode`);
 
 const app = express();
-const PORT = process.env.PORT || 5002;
+const PORT = 5000; // Force port 5000 to avoid conflicts
 
 // CORS configuration
 const corsOptions = {
@@ -29,8 +30,30 @@ const corsOptions = {
     'http://localhost:8082',
     'http://localhost:8085',
     'http://localhost:3000',
+    'http://localhost:5000',
+    'http://localhost:5007',
+    'https://thruster-three.vercel.app/',
+    'https://thrusterapp.netlify.app/',
     'http://localhost:19006',
-    'http://localhost:19000'
+    'http://localhost:19000',
+    'http://localhost:19001',
+    'http://localhost:19002',
+    'http://localhost:19004',
+    'http://localhost:19005',
+    'http://localhost:19007',
+    'http://localhost:19008',
+    'exp://localhost:*',
+    'exp://192.168.*',
+    'exp://10.0.*',
+    'exp://172.*',
+    // Additional common Expo ports
+    'http://localhost:19009',
+    'http://localhost:19010',
+    'http://localhost:19011',
+    'http://localhost:19012',
+    'http://localhost:19013',
+    'http://localhost:19014',
+    'http://localhost:19015'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -99,6 +122,28 @@ app.get('/health', (req, res) => {
   res.status(isHealthy ? 200 : 503).json(healthCheck);
 });
 
+// TonConnect manifest endpoint
+app.get('/tonconnect-manifest.json', (req, res) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const manifest = {
+    url: isProduction ? "https://thruster.netlify.app" : "http://localhost:8081",
+    name: "Thruster",
+    iconUrl: "https://chocolate-chemical-orangutan-457.mypinata.cloud/ipfs/bafybeig2ke6iowzphw7cxexu5o64k73tlaoph7vtpi2tsccbkexfryl37m",
+    termsOfUseUrl: isProduction ? "https://thruster.netlify.app/terms" : "http://localhost:8081/terms",
+    privacyPolicyUrl: isProduction ? "https://thruster.netlify.app/privacy" : "http://localhost:8081/privacy"
+  };
+
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
+  res.json(manifest);
+});
+
 // Routes
 import productsRoutes from './routes/products.js';
 import authRoutes from './routes/auth.js';
@@ -111,6 +156,7 @@ import activitiesRoutes from './routes/activities.js';
 
 import paymentCallbackRoutes from './routes/paymentCallback.js';
 import cartRoutes from './routes/cart.js';
+import rewardsRoutes from './routes/rewards.js';
 
 app.use('/api/products', productsRoutes);
 app.use('/api/auth', authRoutes);
@@ -122,11 +168,12 @@ app.use('/api/users', usersRoutes);
 app.use('/api/activities', activitiesRoutes);
 app.use('/api/paymentCallback', paymentCallbackRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/rewards', rewardsRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
   res.json({
-    message: 'Cyberpunk App Backend API',
+    message: 'Thruster App Backend API',
     version: '1.0.0',
     environment: process.env.NODE_ENV,
     timestamp: new Date().toISOString()

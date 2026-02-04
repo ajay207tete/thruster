@@ -13,12 +13,12 @@
       "name": "Thruster App",
       "shortName": "Thruster",
       "lang": "en",
-      "scope": "/",
+      "scope": "/app",
       "themeColor": "#000000",
       "description": "Cyberpunk themed e-commerce and travel app",
       "dir": "ltr",
       "display": "standalone",
-      "startUrl": "/",
+      "startUrl": "/app",
       "orientation": "portrait",
       "backgroundColor": "#000000",
       "public": "./public"
@@ -27,8 +27,8 @@
       "eas": {
         "projectId": "your-project-id"
       },
-      "EXPO_PUBLIC_API_BASE_URL": "http://localhost:8888",
-      "EXPO_PUBLIC_TON_MANIFEST_URL": "https://thruster.netlify.app/tonconnect-manifest.json"
+      "EXPO_PUBLIC_API_BASE_URL": "https://thruster-api.netlify.app",
+      "EXPO_PUBLIC_TON_MANIFEST_URL": "https://thruster-api.netlify.app/.netlify/functions/tonconnect-manifest"
     },
     "plugins": [
       "expo-router"

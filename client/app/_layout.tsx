@@ -18,7 +18,12 @@ export default function RootLayout() {
 
   // Memoize the manifest URL to prevent unnecessary re-renders
   const manifestUrl = useMemo(() => {
-    return process.env.EXPO_PUBLIC_TON_MANIFEST_URL || "https://thruster-three.netlify.app/tonconnect-manifest.json";
+    // Check if we're running locally (development mode)
+    const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    if (isLocalhost) {
+      return "http://localhost:5000/tonconnect-manifest.json";
+    }
+    return process.env.EXPO_PUBLIC_TON_MANIFEST_URL || "https://thruster-api.netlify.app/.netlify/functions/tonconnect-manifest";
   }, []);
 
   if (!loaded) {
