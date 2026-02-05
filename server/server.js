@@ -21,7 +21,7 @@ console.log(`JWT_SECRET loaded: ${!!process.env.JWT_SECRET}`);
 console.log(`Server starting in ${process.env.NODE_ENV || 'development'} mode`);
 
 const app = express();
-const PORT = 5000; // Force port 5000 to avoid conflicts
+const PORT = process.env.PORT || 5001; // Use environment variable or default to 5001
 
 // CORS configuration
 const corsOptions = {
@@ -53,7 +53,18 @@ const corsOptions = {
     'http://localhost:19012',
     'http://localhost:19013',
     'http://localhost:19014',
-    'http://localhost:19015'
+    'http://localhost:19015',
+    // More localhost ports for Expo
+    'http://localhost:19016',
+    'http://localhost:19017',
+    'http://localhost:19018',
+    'http://localhost:19019',
+    'http://localhost:19020',
+    'http://localhost:19021',
+    'http://localhost:19022',
+    'http://localhost:19023',
+    'http://localhost:19024',
+    'http://localhost:19025'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -158,7 +169,7 @@ import paymentCallbackRoutes from './routes/paymentCallback.js';
 import cartRoutes from './routes/cart.js';
 import rewardsRoutes from './routes/rewards.js';
 
-app.use('/api/products', productsRoutes);
+app.use('/products', productsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/order', orderRoutes);
 app.use('/api/payment', paymentRoutes);
@@ -168,7 +179,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/activities', activitiesRoutes);
 app.use('/api/paymentCallback', paymentCallbackRoutes);
 app.use('/api/cart', cartRoutes);
-app.use('/api/rewards', rewardsRoutes);
+app.use('/rewards', rewardsRoutes);
 
 // Basic route
 app.get('/', (req, res) => {

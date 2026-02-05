@@ -1,4 +1,12 @@
-import { apiService } from './api';
+import axios from 'axios';
+import { API_BASE } from '../config/api';
+
+const api = axios.create({
+  baseURL: API_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 export interface Task {
   taskId: string;
@@ -40,7 +48,7 @@ export interface ClaimRewardResponse {
 export class RewardService {
   async getTasks(): Promise<Task[]> {
     try {
-      const response = await apiService.get('/rewards/tasks');
+      const response = await api.get('/rewards/tasks');
       return response.data;
     } catch (error) {
       console.error('Get tasks error:', error);
@@ -50,7 +58,7 @@ export class RewardService {
 
   async getUserPoints(walletAddress: string): Promise<UserPoints> {
     try {
-      const response = await apiService.get(`/rewards/users/${walletAddress}`);
+      const response = await api.get(`/rewards/users/${walletAddress}`);
       return response.data;
     } catch (error) {
       console.error('Get user points error:', error);
@@ -60,7 +68,7 @@ export class RewardService {
 
   async claimReward(walletAddress: string, taskId: string): Promise<ClaimRewardResponse> {
     try {
-      const response = await apiService.post('/rewards/claim', {
+      const response = await api.post('/rewards/claim', {
         walletAddress,
         taskId
       });
@@ -74,7 +82,7 @@ export class RewardService {
   // Legacy method for backward compatibility
   async getRewards(walletAddress: string): Promise<RewardResponse> {
     try {
-      const response = await apiService.get(`/rewards/${walletAddress}`);
+      const response = await api.get(`/rewards/${walletAddress}`);
       return response.data;
     } catch (error) {
       console.error('Get rewards error:', error);

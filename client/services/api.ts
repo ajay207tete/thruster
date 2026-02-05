@@ -15,8 +15,8 @@ const api = axios.create({
 });
 
 // Products API
-export const getProducts = async () => {
-  const response = await api.get('/products');
+export const getProducts = async (page: number = 1, limit: number = 10) => {
+  const response = await api.get(`/products?page=${page}&limit=${limit}`);
   return response.data;
 };
 
@@ -125,6 +125,11 @@ export const getTonManifest = async () => {
 
 // Legacy methods for backward compatibility
 export const apiService = {
+  getProducts,
+  getTasks: async () => {
+    const response = await api.get('/rewards/tasks');
+    return response.data;
+  },
   createOrderForOrderService: createOrder,
   getOrderHistoryForOrderService: getOrderHistory,
 };

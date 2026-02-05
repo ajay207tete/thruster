@@ -3,13 +3,35 @@ import Product from '../models/Product.js';
 
 const router = express.Router();
 
-// GET all products
+// GET all products with pagination
 router.get('/', async (req, res) => {
   try {
     console.log('Fetching products from MongoDB...');
-    const products = await Product.find();
-    console.log('Products from MongoDB:', products.length);
-    res.json(products);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const totalProducts = await Product.countDocuments();
+    const products = await Product.find().skip(skip).limit(limit);
+
+    const totalPages = Math.ceil(totalProducts / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    const pagination = {
+      currentPage: page,
+      totalPages,
+      totalProducts,
+      hasNextPage,
+      hasPrevPage,
+      limit
+    };
+
+    console.log('Products from MongoDB:', products.length, 'pagination:', pagination);
+    res.json({
+      products,
+      pagination
+    });
   } catch (err) {
     console.error('Error fetching products:', err);
     res.status(500).json({ message: err.message });
