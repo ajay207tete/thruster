@@ -23,9 +23,6 @@ import { apiService } from '@/services/api';
 import Header from '@/components/Header';
 import TaskCard from '@/components/TaskCard';
 
-const API_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ||
-  "http://localhost:5007";
 
 export default function RewardsScreen() {
   const rewardService = new RewardService();
