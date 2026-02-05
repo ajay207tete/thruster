@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:5000'; // Express backend base URL
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+if (!API_BASE_URL) {
+  console.error('EXPO_PUBLIC_API_BASE_URL environment variable is not set');
+}
 
 // Types
 export interface Product {

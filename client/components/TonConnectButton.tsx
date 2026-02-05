@@ -21,8 +21,12 @@ export default function TonConnectButtonComponent() {
 
         try {
           // Store wallet address in MongoDB when connected
-          const apiUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8888/.netlify/functions';
-          const response = await axios.post(`${apiUrl}/user/register`, {
+          const apiUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+          if (!apiUrl) {
+            console.error('EXPO_PUBLIC_API_BASE_URL not set, skipping wallet registration');
+            return;
+          }
+          const response = await axios.post(`${apiUrl}/api/users`, {
             walletAddress: address
           });
 
@@ -58,8 +62,7 @@ export default function TonConnectButtonComponent() {
         return;
       }
 
-      // Log manifest URL for debugging
-      console.log('Opening wallet modal with manifest URL:', tonConnectUI.manifestUrl);
+
 
       await tonConnectUI.openModal();
     } catch (error) {
