@@ -1,12 +1,6 @@
 import axios from 'axios';
 import { API_BASE } from '../config/api';
 
-const API_BASE_URL = API_BASE;
-
-if (!API_BASE_URL) {
-  console.error('EXPO_PUBLIC_API_BASE_URL environment variable is not set');
-}
-
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
