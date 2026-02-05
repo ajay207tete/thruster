@@ -131,19 +131,13 @@ export function CartProvider({ children }: CartProviderProps) {
     }
   };
 
-  //addtocart
-  const addToCart = async (
-  productId: string,
-  quantity: number = 1,
-  size?: string,
-  color?: string
-) => {
-  try {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+  const addToCart = async (productId: string, quantity: number = 1, size?: string, color?: string) => {
+    try {
+      setState(prev => ({ ...prev, loading: true, error: null }));
 
-    const productData = await apiService.getProductById(productId);
+      // Fetch product data
+      const productData = await apiService.getProductById(productId);
 
-    setState(prev => {
       const newItem: CartItem = {
         _id: `item_${Date.now()}_${Math.random()}`,
         product: {
@@ -157,56 +151,53 @@ export function CartProvider({ children }: CartProviderProps) {
         color
       };
 
-      const existingIndex = prev.cart.items.findIndex(
-        item =>
-          item.product._id === productId &&
-          item.size === size &&
-          item.color === color
+      // Check if item already exists
+      const existingIndex = state.cart.items.findIndex(
+        item => item.product._id === productId &&
+                item.size === size &&
+                item.color === color
       );
 
       let updatedItems: CartItem[];
-
       if (existingIndex >= 0) {
-        updatedItems = [...prev.cart.items];
+        updatedItems = [...state.cart.items];
         updatedItems[existingIndex].quantity += quantity;
       } else {
-        updatedItems = [...prev.cart.items, newItem];
+        updatedItems = [...state.cart.items, newItem];
       }
 
-      const totalItems = updatedItems.reduce((s, i) => s + i.quantity, 0);
-      const totalPrice = updatedItems.reduce((s, i) => s + i.price * i.quantity, 0);
+      // Always compute totals
+      const totalItems = updatedItems.reduce((sum, item) => sum + item.quantity, 0);
+      const totalPrice = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
       const updatedCart: Cart = {
-        ...prev.cart,
+        ...state.cart,
         items: updatedItems,
         totalItems,
         totalPrice,
         lastUpdated: new Date().toISOString()
       };
 
-      AsyncStorage.setItem('localCart', JSON.stringify(updatedCart));
+      setState(prev => ({ ...prev, cart: updatedCart, loading: false }));
 
-      return {
-        ...prev,
-        cart: updatedCart,
-        loading: false
-      };
-    });
-
-  } catch (error: any) {
-    console.error('Error adding to cart:', error);
-    setState(prev => ({
-      ...prev,
-      error: error.message || 'Failed to add item',
-      loading: false
-    }));
-  }
-};
+      // Save to storage
+      try {
+        await AsyncStorage.setItem('localCart', JSON.stringify(updatedCart));
+      } catch (storageError) {
+        console.error('Storage error in addToCart:', storageError);
+        setState(prev => ({ ...prev, error: 'Failed to save cart' }));
+      }
+    } catch (error: any) {
+      console.error('Error adding to cart:', error);
+      setState(prev => ({ ...prev, error: error.message || 'Failed to add item', loading: false }));
+    }
+  };
 
   const updateCartItem = async (itemId: string, quantity: number) => {
-  try {
-    setState(prev => {
-      const updatedItems = prev.cart.items
+    try {
+      setState(prev => ({ ...prev, loading: true, error: null }));
+
+      const updatedItems = state.cart.items
         .map(item =>
           item._id === itemId
             ? { ...item, quantity }
@@ -214,58 +205,93 @@ export function CartProvider({ children }: CartProviderProps) {
         )
         .filter(item => item.quantity > 0);
 
-      const totalItems = updatedItems.reduce((s, i) => s + i.quantity, 0);
-      const totalPrice = updatedItems.reduce((s, i) => s + i.price * i.quantity, 0);
+      // Always compute totals
+      const totalItems = updatedItems.reduce((sum, item) => sum + item.quantity, 0);
+      const totalPrice = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
       const updatedCart: Cart = {
-        ...prev.cart,
+        ...state.cart,
         items: updatedItems,
         totalItems,
         totalPrice,
         lastUpdated: new Date().toISOString()
       };
 
-      AsyncStorage.setItem('localCart', JSON.stringify(updatedCart));
+      setState(prev => ({ ...prev, cart: updatedCart, loading: false }));
 
-      return {
-        ...prev,
-        cart: updatedCart,
-        loading: false,
-        error: null
-      };
-    });
+      // Save to storage
+      try {
+        await AsyncStorage.setItem('localCart', JSON.stringify(updatedCart));
+      } catch (storageError) {
+        console.error('Storage error in updateCartItem:', storageError);
+        setState(prev => ({ ...prev, error: 'Failed to save cart' }));
+      }
+    } catch (error: any) {
+      console.error('Error updating cart item:', error);
+      setState(prev => ({ ...prev, error: error.message || 'Failed to update item', loading: false }));
+    }
+  };
 
-  } catch (error: any) {
-    setState(prev => ({
-      ...prev,
-      error: error.message,
-      loading: false
-    }));
-  }
-};
   const removeFromCart = async (itemId: string) => {
-  setState(prev => {
-    const updatedItems = prev.cart.items.filter(i => i._id !== itemId);
+    try {
+      setState(prev => ({ ...prev, loading: true, error: null }));
 
-    const totalItems = updatedItems.reduce((s, i) => s + i.quantity, 0);
-    const totalPrice = updatedItems.reduce((s, i) => s + i.price * i.quantity, 0);
+      const updatedItems = state.cart.items.filter(item => item._id !== itemId);
 
-    const updatedCart: Cart = {
-      ...prev.cart,
-      items: updatedItems,
-      totalItems,
-      totalPrice,
-      lastUpdated: new Date().toISOString()
-    };
+      // Always compute totals
+      const totalItems = updatedItems.reduce((sum, item) => sum + item.quantity, 0);
+      const totalPrice = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    AsyncStorage.setItem('localCart', JSON.stringify(updatedCart));
+      const updatedCart: Cart = {
+        ...state.cart,
+        items: updatedItems,
+        totalItems,
+        totalPrice,
+        lastUpdated: new Date().toISOString()
+      };
 
-    return {
-      ...prev,
-      cart: updatedCart
-    };
-  });
-};
+      setState(prev => ({ ...prev, cart: updatedCart, loading: false }));
+
+      // Save to storage
+      try {
+        await AsyncStorage.setItem('localCart', JSON.stringify(updatedCart));
+      } catch (storageError) {
+        console.error('Storage error in removeFromCart:', storageError);
+        setState(prev => ({ ...prev, error: 'Failed to save cart' }));
+      }
+    } catch (error: any) {
+      console.error('Error removing from cart:', error);
+      setState(prev => ({ ...prev, error: error.message || 'Failed to remove item', loading: false }));
+    }
+  };
+
+  const clearCart = async () => {
+    try {
+      setState(prev => ({ ...prev, loading: true, error: null }));
+
+      const clearedCart: Cart = {
+        ...state.cart,
+        items: [],
+        totalItems: 0,
+        totalPrice: 0,
+        lastUpdated: new Date().toISOString()
+      };
+
+      setState(prev => ({ ...prev, cart: clearedCart, loading: false }));
+
+      // Save to storage
+      try {
+        await AsyncStorage.setItem('localCart', JSON.stringify(clearedCart));
+      } catch (storageError) {
+        console.error('Storage error in clearCart:', storageError);
+        setState(prev => ({ ...prev, error: 'Failed to save cart' }));
+      }
+    } catch (error: any) {
+      console.error('Error clearing cart:', error);
+      setState(prev => ({ ...prev, error: error.message || 'Failed to clear cart', loading: false }));
+    }
+  };
+
   const refreshCart = async () => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
