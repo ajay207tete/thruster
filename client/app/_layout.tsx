@@ -9,6 +9,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { CartProvider } from '@/contexts/CartContext';
 import { TonConnectInitializer } from '@/components/TonConnectInitializer';
+import { MANIFEST_URL } from '@/config/api';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -18,38 +19,27 @@ export default function RootLayout() {
 
   // Memoize the manifest URL to prevent unnecessary re-renders
   const manifestUrl = useMemo(() => {
-    const url = process.env.EXPO_PUBLIC_TON_MANIFEST_URL;
-    if (!url) {
-      console.error('EXPO_PUBLIC_TON_MANIFEST_URL environment variable is not set');
-    }
-    return url;
+    return MANIFEST_URL;
   }, []);
 
   if (!loaded) {
-    // Async font loading only occurs in development.
     return null;
   }
 
   return (
-    <TonConnectUIProvider manifestUrl={manifestUrl} key="ton-connect-provider">
-      <TonConnectInitializer>
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <TonConnectUIProvider manifestUrl={manifestUrl}>
         <CartProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="cart" />
-              <Stack.Screen name="checkout" />
-              <Stack.Screen name="payment" />
-              <Stack.Screen name="order-success" />
-              <Stack.Screen name="rewards" />
-              <Stack.Screen name="nft" />
+          <TonConnectInitializer>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="+not-found" />
             </Stack>
             <StatusBar style="auto" />
-          </ThemeProvider>
+            <Analytics />
+          </TonConnectInitializer>
         </CartProvider>
-      </TonConnectInitializer>
-      <Analytics />
-    </TonConnectUIProvider>
+      </TonConnectUIProvider>
+    </ThemeProvider>
   );
 }
