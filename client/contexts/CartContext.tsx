@@ -131,35 +131,40 @@ export function CartProvider({ children }: CartProviderProps) {
     }
   };
 
-  const addToCart = async (productId: string, quantity: number = 1, size?: string, color?: string) => {
-    try {
-      setState(prev => ({ ...prev, loading: true, error: null }));
+  const addToCart = async (
+  productId: string,
+  quantity: number = 1,
+  size?: string,
+  color?: string
+) => {
+  try {
+    setState(prev => ({ ...prev, loading: true, error: null }));
 
-      // Fetch product data
-      const productData = await apiService.getProductById(productId);
+    const productData = await apiService.getProductById(productId);
 
-      setState(prev => {
-        const newItem:CartItem ={
-          _id:'item_${Date.now()}_${Math.random()}',
-          product:{
-            _id:productId,
-            name:productData?.name ||'product ${productId}'
-            image:productData?.imageUrl,
-          },
-               price:productData?.price ||10,
-               quantity,
-               size,
-               color,
+    setState(prev => {
+      const newItem: CartItem = {
+        _id: `item_${Date.now()}_${Math.random()}`,
+        product: {
+          _id: productId,
+          name: productData?.name || `product ${productId}`,
+          image: productData?.imageUrl,
+        },
+        price: productData?.price || 10,
+        quantity,
+        size,
+        color,
       };
 
-      // Check if item already exists
       const existingIndex = prev.cart.items.findIndex(
-        item => item.product._id === productId &&
-                item.size === size &&
-                item.color === color
+        item =>
+          item.product._id === productId &&
+          item.size === size &&
+          item.color === color
       );
 
       let updatedItems: CartItem[];
+
       if (existingIndex >= 0) {
         updatedItems = [...prev.cart.items];
         updatedItems[existingIndex].quantity += quantity;
@@ -167,32 +172,33 @@ export function CartProvider({ children }: CartProviderProps) {
         updatedItems = [...prev.cart.items, newItem];
       }
 
-      // Always compute totals
-      const totalItems = updatedItems.reduce((sum, item) => sum + item.quantity, 0);
-      const totalPrice = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const totalItems = updatedItems.reduce((s, i) => s + i.quantity, 0);
+      const totalPrice = updatedItems.reduce((s, i) => s + i.price * i.quantity, 0);
 
       const updatedCart: Cart = {
         ...prev.cart,
         items: updatedItems,
         totalItems,
         totalPrice,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       };
 
-    
+      AsyncStorage.setItem('localCart', JSON.stringify(updatedCart));
 
-      // Save to storage
-      asyncStorage.setItem('localCart',JSON.stringify(updatedCart));
-    return{
-      ..prev,
-      cart:updatedCart,
-      loading:false,
+      return {
+        ...prev,
+        cart: updatedCart,
+        loading: false,
       };
-});
-    } catch (error: any) {
-      setState(prev => ({ ...prev, error: error.message || 'Failed to add item', loading: false }));
-    }
-  };
+    });
+  } catch (error: any) {
+    setState(prev => ({
+      ...prev,
+      error: error.message || 'Failed to add item',
+      loading: false,
+    }));
+  }
+};
 
   const updateCartItem = async (itemId: string, quantity: number) => {
     try {
