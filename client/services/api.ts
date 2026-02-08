@@ -40,25 +40,53 @@ export const getOrderById = async (id: string) => {
 };
 
 // Cart API
-export const getCart = async (userId: string) => {
-  const response = await api.get(`/cart/${userId}`);
+
+export const getCart = async (walletAddress: string) => {
+  const response = await api.get(`/cart/${walletAddress}`);
   return response.data;
 };
 
-export const addToCart = async (userId: string, item: any) => {
-  const response = await api.post(`/cart/${userId}`, item);
+export const addToCart = async (
+  walletAddress: string,
+  productId: string,
+  quantity: number = 1
+) => {
+  const response = await api.post(`/cart/add`, {
+    walletAddress,
+    productId,
+    quantity,
+  });
   return response.data;
 };
 
-export const updateCartItem = async (userId: string, itemId: string, item: any) => {
-  const response = await api.put(`/cart/${userId}/${itemId}`, item);
+export const updateCartItem = async (
+  walletAddress: string,
+  productId: string,
+  quantity: number
+) => {
+  const response = await api.put(`/cart/update`, {
+    walletAddress,
+    productId,
+    quantity,
+  });
   return response.data;
 };
 
-export const removeFromCart = async (userId: string, itemId: string) => {
-  const response = await api.delete(`/cart/${userId}/${itemId}`);
+export const removeFromCart = async (
+  walletAddress: string,
+  productId: string
+) => {
+  const response = await api.delete(`/cart/remove`, {
+    data: { walletAddress, productId },
+  });
   return response.data;
 };
+
+export const clearCart = async (walletAddress: string) => {
+  const response = await api.delete(`/cart/clear/${walletAddress}`);
+  return response.data;
+};
+
 
 // Payment API
 export const createPayment = async (paymentData: any) => {
